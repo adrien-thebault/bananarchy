@@ -1,0 +1,22 @@
+<preference-headers xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- These settings headers are only used on tablets. -->
+
+    <header
+        android:fragment="insa_project.bananarchy.activities.SettingsActivity$NotificationPreferenceFragment"
+        android:icon="@drawable/ic_notifications_black_24dp"
+        android:title="@string/pref_header_alarm" />
+
+    <header
+        android:fragment="insa_project.bananarchy.activities.SettingsActivity$GeneralPreferenceFragment"
+        android:icon="@drawable/ic_directions_walk_black_24dp"
+        android:title="@string/pref_header_transport" />
+
+    <header
+        android:fragment="insa_project.bananarchy.activities.SettingsActivity$EdtPreferenceFragment"
+        android:icon="@drawable/ic_today_black_24dp"
+        android:title="@string/pref_header_edt" />
+
+
+
+</preference-headers>
