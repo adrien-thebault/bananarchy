@@ -1,8 +1,10 @@
 class DataController < ApplicationController
 
+  API_KEY = "AIzaSyA6MgLEvkwT3YZBvoS-p_-wMVqAgFPQf9s"
+
   before_action :get_settings
 
-  # GET /api/all
+  # GET /data/all
   def all
 
     render :json => {
@@ -13,6 +15,8 @@ class DataController < ApplicationController
     }
 
   end
+
+
 
   private
 
@@ -47,12 +51,12 @@ class DataController < ApplicationController
 
     # Time w/ bus
     def get_travel_time_bus
-
+      ((JSON.parse(RestClient.get("https://maps.googleapis.com/maps/api/directions/json?origin=#{@settings[:location]}&destination=#{@settings[:workplace]}&mode=transit&transit_mode=bus&key=#{API_KEY}"), :symbolize_names => true)[:routes][0][:legs][0][:duration][:value].to_i)/60).to_i
     end
 
     # Time w/ car
     def get_travel_time_car
-
+      ((JSON.parse(RestClient.get("https://maps.googleapis.com/maps/api/directions/json?origin=#{@settings[:location]}&destination=#{@settings[:workplace]}&key=#{API_KEY}"), :symbolize_names => true)[:routes][0][:legs][0][:duration][:value].to_i)/60).to_i
     end
 
 end
