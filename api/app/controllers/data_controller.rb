@@ -16,7 +16,25 @@ class DataController < ApplicationController
 
   end
 
+  # GET /data/weather
+  def weather
+    render :json => get_weather
+  end
 
+  # GET /data/agenda
+  def agenda
+    render :json => get_agenda
+  end
+
+  # GET /data/travel_time
+  def travel_time
+    render :json => (@settings[:transportation] == 'bus') ? get_travel_time_bus : get_travel_time_car
+  end
+
+  # GET /data/timestamp
+  def timestamp
+    render :json => Time.now.getutc.to_i
+  end
 
   private
 
