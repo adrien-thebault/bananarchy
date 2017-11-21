@@ -31,7 +31,7 @@ public class APIConnexion {
     URL url;
     HttpsURLConnection connection;
     static final String URL_CALENDAR = "https://edt.adrien-thebault.fr/api/calendar.json";
-    static final String URL_GRP = "https://koikege.pierre-boulch.fr/apiGr.json";
+    static final String URL_GRP = "https://koikege.pierre-boulch.fr/apiGr-v2.json";
 
 
 
@@ -79,7 +79,7 @@ public class APIConnexion {
             try
             {
                 JSONArray jsonArr = new JSONArray(response);
-                for(int i=0; i<jsonArr.length();i++)
+                for(int i=1; i<jsonArr.length();i++)
                 {
                     JSONObject jsonObj = jsonArr.getJSONObject(i);
                     Iterator<?> keys = jsonObj.keys();
