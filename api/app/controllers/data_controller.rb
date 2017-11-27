@@ -62,7 +62,7 @@ class DataController < ApplicationController
 
       {
         :weather => res[:weather][0][:main],
-        :temp => res[:main][:temp]
+        :temp => (res[:main][:temp].to_f - 273.15).round
       }
 
     end
