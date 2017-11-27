@@ -8,11 +8,16 @@ import android.content.res.Configuration;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
+import android.preference.MultiSelectListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
+import android.preference.PreferenceCategory;
+import android.preference.PreferenceScreen;
 import android.support.v7.app.ActionBar;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
@@ -20,10 +25,18 @@ import android.preference.RingtonePreference;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.MenuItem;
+import android.widget.ListView;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import insa_project.bananarchy.R;
+import insa_project.bananarchy.bdd.GroupDAO;
+import insa_project.bananarchy.bdd.LevelDAO;
+import insa_project.bananarchy.bdd.RessourcesDAO;
+import insa_project.bananarchy.model.Group;
+import insa_project.bananarchy.model.Level;
+import insa_project.bananarchy.utils.MyPreference;
 
 /**
  * A {@link PreferenceActivity} that presents a set of application settings. On
@@ -37,6 +50,8 @@ import insa_project.bananarchy.R;
  * API Guide</a> for more information on developing a Settings UI.
  */
 public class SettingsActivity extends AppCompatPreferenceActivity {
+
+    private static Context context;
     /**
      * A preference value change listener that updates the preference's summary
      * to reflect its new value.
@@ -124,6 +139,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setupActionBar();
+        context = this;
     }
 
     /**
@@ -234,9 +250,16 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     public static class EdtPreferenceFragment extends PreferenceFragment {
         @Override
         public void onCreate(Bundle savedInstanceState) {
+            /*super.onCreate(savedInstanceState);
+            //addPreferencesFromResource(R.xml.pref_edt);
+            Preference pref = new Preference(SettingsActivity.context);
+            pref.setTitle("3INFO");
+            Intent t = new Intent(SettingsActivity.context, NotificationPreferenceFragment.class);
+            addPreferencesFromIntent(t);
+            setHasOptionsMenu(true);*/
             super.onCreate(savedInstanceState);
-            addPreferencesFromResource(R.xml.pref_edt);
-            setHasOptionsMenu(true);
+            AsynkTaskGetLevels asynkTaskGetLevels = new AsynkTaskGetLevels();
+            asynkTaskGetLevels.execute();
         }
 
         @Override
@@ -248,6 +271,126 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                 return true;
             }
             return super.onOptionsItemSelected(item);
+        }
+
+        private class AsynkTaskGetLevels extends AsyncTask<String,Void,ArrayList<Level>> {
+
+            @Override
+            protected ArrayList<Level> doInBackground(String ... params) {
+                /*LevelDAO ndao = new LevelDAO(EdtPreferenceFragment.this.getActivity());
+                GroupDAO groupDAO = new GroupDAO(getActivity());
+                ArrayList<Level> listLevels;
+                listLevels = ndao.getAllLevels();
+                ArrayList<Group> listGroup;
+                for(Level level : listLevels){
+                    listGroup = groupDAO.listGroupeFromLevel(level.getId());
+                    level.addAllGroupsToLevel(listGroup);
+                }*/
+
+                LevelDAO levelDAO = new LevelDAO(getActivity());
+                GroupDAO groupDAO = new GroupDAO(getActivity());
+                RessourcesDAO ressourcesDAO = new RessourcesDAO(getActivity());
+                ArrayList<Level> listLevels;
+                listLevels = levelDAO.getAllLevels();
+                ArrayList<Level> result = new ArrayList<>();
+
+                ArrayList<Group> listGroup;
+                for(Level level : listLevels){
+                    listGroup = groupDAO.listGroupeFromLevel(level.getId());
+                    ArrayList<Group> result1 = new ArrayList<>();
+                    for(Group group : listGroup){
+                        group.setRessource(ressourcesDAO.getRessources(group.getId()));
+                        result1.add(group);
+                    }
+                    level.addAllGroupsToLevel(result1);
+                    result.add(level);
+                }
+
+                return result;
+            }
+
+
+            // Méthode exécutée à la fin de l'execution de la tâche asynchrone
+            @Override
+            protected void onPostExecute(ArrayList<Level> levels) {
+                super.onPostExecute(levels);
+
+                PreferenceScreen screen = getPreferenceManager().createPreferenceScreen(getActivity());
+
+                PreferenceCategory category = new PreferenceCategory(getActivity());
+                category.setTitle("Sélectionnez des matières");
+
+                screen.addPreference(category);
+                for(Level level : levels){
+                    MultiSelectListPreference pref = new MultiSelectListPreference(getActivity());
+                    pref.setTitle(level.getLibelle());
+                    String[] listKey = new String[level.getGroups().size()];
+                    String[] listValues = new String[level.getGroups().size()];
+                    int i = 0;
+                    for(Group group : level.getGroups()){
+                        listKey[i] = group.getLibelle();
+                        Log.d("LIBELLE",group.getLibelle());
+                        int j = 0;
+                        for(String res : group.getRessource()){
+                            if(j>0)
+                                listValues[i] = listValues[i]+","+res;
+                            else
+                                listValues[i] = res;
+                            j++;
+                        }
+
+
+                        i++;
+                    }
+                    pref.setEntries(listKey);
+                    pref.setEntryValues(listValues);
+                    category.addPreference(pref);
+                }
+                setPreferenceScreen(screen);
+
+                //Intent intent = new Intent(SyncActivity.this, MainActivity.class);
+                //startActivity(intent);
+            }
+        }
+
+        private class AsynkTaskGroups extends AsyncTask<Long,Void,ArrayList<Group>> {
+
+            @Override
+            protected ArrayList<Group> doInBackground(Long ... params) {
+                GroupDAO ndao = new GroupDAO(EdtPreferenceFragment.this.getActivity());
+                ArrayList<Group> listGroups;
+                listGroups = ndao.listGroupeFromLevel(params[0]);
+                return listGroups;
+
+            }
+
+            // Méthode exécutée à la fin de l'execution de la tâche asynchrone
+            @Override
+            protected void onPostExecute(ArrayList<Group> groups) {
+                super.onPostExecute(groups);
+
+                PreferenceScreen screen = getPreferenceManager().createPreferenceScreen(getActivity());
+
+                PreferenceCategory category = new PreferenceCategory(getActivity());
+                category.setTitle("Choisir des ressources");
+
+                screen.addPreference(category);
+
+                MultiSelectListPreference pref = new MultiSelectListPreference(getActivity());
+                String[] listKey = new String[groups.size()];
+                String[] listValues = new String[groups.size()];
+                int i = 0;
+                for(Group group : groups){
+                    listKey[i] = group.getLibelle();
+                    listValues[i] = group.getId()+"";
+                    i++;
+                }
+                pref.setEntries(listKey);
+                pref.setEntryValues(listValues);
+                category.addPreference(pref);
+
+                setPreferenceScreen(screen);
+            }
         }
     }
 }
