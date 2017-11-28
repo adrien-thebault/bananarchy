@@ -4,6 +4,7 @@ package insa_project.bananarchy.activities;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -11,13 +12,13 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
 import android.preference.MultiSelectListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceScreen;
+import android.preference.SwitchPreference;
 import android.support.v7.app.ActionBar;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
@@ -25,10 +26,18 @@ import android.preference.RingtonePreference;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.MenuItem;
-import android.widget.ListView;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import insa_project.bananarchy.R;
 import insa_project.bananarchy.bdd.GroupDAO;
@@ -36,7 +45,6 @@ import insa_project.bananarchy.bdd.LevelDAO;
 import insa_project.bananarchy.bdd.RessourcesDAO;
 import insa_project.bananarchy.model.Group;
 import insa_project.bananarchy.model.Level;
-import insa_project.bananarchy.utils.MyPreference;
 
 /**
  * A {@link PreferenceActivity} that presents a set of application settings. On
@@ -51,7 +59,9 @@ import insa_project.bananarchy.utils.MyPreference;
  */
 public class SettingsActivity extends AppCompatPreferenceActivity {
 
-    private static Context context;
+    private static SettingsActivity context;
+    private static GeneralPreferenceFragment contextFrag;
+
     /**
      * A preference value change listener that updates the preference's summary
      * to reflect its new value.
@@ -60,6 +70,17 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         @Override
         public boolean onPreferenceChange(Preference preference, Object value) {
             String stringValue = value.toString();
+
+            SharedPreferences.Editor editor = PreferenceManager.getDefaultSharedPreferences(preference.getContext()).edit();
+
+            SwitchPreference switchPreferenceCar = null;
+            SwitchPreference switchPreferenceWalker = null;
+            SwitchPreference switchPreferenceBus = null;
+            if(contextFrag != null) {
+                switchPreferenceCar = (SwitchPreference) contextFrag.findPreference("car_preference");
+                switchPreferenceWalker = (SwitchPreference) contextFrag.findPreference("walker_preference");
+                switchPreferenceBus = (SwitchPreference) contextFrag.findPreference("bus_preference");
+            }
 
             if (preference instanceof ListPreference) {
                 // For list preferences, look up the correct display value in
@@ -95,11 +116,56 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                     }
                 }
 
-            } else {
+            }else if(preference instanceof SwitchPreference && preference.getKey().equals("bus_preference")){
+                Boolean val = (Boolean)value;
+                if(val) {
+                    preference.setSummary("Je prends le bus");
+                    switchPreferenceCar.setChecked(false);
+                    switchPreferenceWalker.setChecked(false);
+                }
+                else {
+                    preference.setSummary("Je ne prends pas le bus");
+                }
+                if(!val && !switchPreferenceCar.isChecked() && !switchPreferenceWalker.isChecked()){
+                    switchPreferenceWalker.setChecked(true);
+                }
+                editor.putBoolean(preference.getKey(),val);
+            }else if(preference instanceof SwitchPreference && preference.getKey().equals("car_preference")){
+                Boolean val = (Boolean)value;
+                if(val) {
+                    preference.setSummary("Je prends la voiture");
+                    switchPreferenceBus.setChecked(false);
+                    switchPreferenceWalker.setChecked(false);
+                }
+                else {
+                    preference.setSummary("Je ne prends pas la voiture");
+                }
+                if(!val && !switchPreferenceBus.isChecked() && !switchPreferenceWalker.isChecked()){
+                    switchPreferenceWalker.setChecked(true);
+                }
+                editor.putBoolean(preference.getKey(),val);
+            }else if(preference instanceof SwitchPreference && preference.getKey().equals("walker_preference")){
+                Boolean val = (Boolean)value;
+                if(!val && !switchPreferenceBus.isChecked() && !switchPreferenceCar.isChecked()) {
+                    return false;
+                }
+                if(val) {
+                    preference.setSummary("Je suis piéton");
+                    switchPreferenceCar.setChecked(false);
+                    switchPreferenceBus.setChecked(false);
+                }
+                else {
+                    preference.setSummary("Je ne suis pas piéton");
+                }
+                editor.putBoolean(preference.getKey(),val);
+            }else {
                 // For all other preferences, set the summary to the value's
                 // simple string representation.
                 preference.setSummary(stringValue);
             }
+
+
+            editor.commit();
             return true;
         }
     };
@@ -128,10 +194,21 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
 
         // Trigger the listener immediately with the preference's
         // current value.
-        sBindPreferenceSummaryToValueListener.onPreferenceChange(preference,
-                PreferenceManager
-                        .getDefaultSharedPreferences(preference.getContext())
-                        .getString(preference.getKey(), ""));
+
+        if(preference instanceof SwitchPreference){
+            sBindPreferenceSummaryToValueListener.onPreferenceChange(preference,
+                    PreferenceManager
+                            .getDefaultSharedPreferences(preference.getContext())
+                            .getBoolean(preference.getKey(), false));
+        } else {
+            sBindPreferenceSummaryToValueListener.onPreferenceChange(preference,
+                    PreferenceManager
+                            .getDefaultSharedPreferences(preference.getContext())
+                            .getString(preference.getKey(), ""));
+
+
+        }
+
 
     }
 
@@ -190,15 +267,72 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
-            addPreferencesFromResource(R.xml.pref_general);
+            addPreferencesFromResource(R.xml.pref_transport);
             setHasOptionsMenu(true);
 
+            contextFrag = this;
             // Bind the summaries of EditText/List/Dialog/Ringtone preferences
             // to their values. When their values change, their summaries are
             // updated to reflect the new value, per the Android Design
             // guidelines.
-            bindPreferenceSummaryToValue(findPreference("example_text"));
-            bindPreferenceSummaryToValue(findPreference("example_list"));
+            bindPreferenceSummaryToValue(findPreference("bus_preference"));
+            bindPreferenceSummaryToValue(findPreference("walker_preference"));
+            bindPreferenceSummaryToValue(findPreference("car_preference"));
+
+            /*final SwitchPreference switchPreferenceBus = (SwitchPreference) findPreference("bus_preference");
+            switchPreferenceBus.setChecked(false);
+
+            final SwitchPreference switchPreferenceWalker = (SwitchPreference) findPreference("walker_preference");
+            switchPreferenceWalker.setChecked(true);
+
+            final SwitchPreference switchPreferenceCar = (SwitchPreference) findPreference("car_preference");
+            switchPreferenceCar.setChecked(false);
+*/
+            /*switchPreferenceBus.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                @Override
+                public boolean onPreferenceChange(Preference preference, Object newValue) {
+                    Boolean value = (Boolean) newValue;
+                    if(value) {
+                        switchPreferenceCar.setChecked(false);
+                        switchPreferenceWalker.setChecked(false);
+                    }
+                    else {
+                        switchPreferenceWalker.setChecked(true);
+                    }
+                    return true;
+                }
+            });
+
+            switchPreferenceWalker.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                @Override
+                public boolean onPreferenceChange(Preference preference, Object newValue) {
+                    Boolean value = (Boolean) newValue;
+                    if(value) {
+                        switchPreferenceCar.setChecked(false);
+                        switchPreferenceBus.setChecked(false);
+                    }
+                    else {
+                        switchPreferenceWalker.setChecked(true);
+                    }
+                    return true;
+                }
+            });
+
+            switchPreferenceCar.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                @Override
+                public boolean onPreferenceChange(Preference preference, Object newValue) {
+                    Boolean value = (Boolean) newValue;
+                    if(value) {
+                        switchPreferenceBus.setChecked(false);
+                        switchPreferenceWalker.setChecked(false);
+                    }
+                    else {
+                        switchPreferenceWalker.setChecked(true);
+                    }
+                    return true;
+                }
+            });*/
+
         }
 
         @Override
@@ -228,7 +362,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             // to their values. When their values change, their summaries are
             // updated to reflect the new value, per the Android Design
             // guidelines.
-            bindPreferenceSummaryToValue(findPreference("notifications_new_message_ringtone"));
+            //bindPreferenceSummaryToValue(findPreference("notifications_new_message_ringtone"));
         }
 
         @Override
@@ -248,6 +382,9 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
      */
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static class EdtPreferenceFragment extends PreferenceFragment {
+
+        protected HashMap<String, HashSet<String>> savePref = new HashMap<>();
+
         @Override
         public void onCreate(Bundle savedInstanceState) {
             /*super.onCreate(savedInstanceState);
@@ -321,11 +458,21 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                 category.setTitle("Sélectionnez des matières");
 
                 screen.addPreference(category);
+                Set<String> listVal = new HashSet<>();
+                try{
+                    File file = new File(getActivity().getDir("data", MODE_PRIVATE), "map_preferences");
+                    ObjectInputStream inputStream = new ObjectInputStream(new FileInputStream(file));
+                    savePref = (HashMap<String, HashSet<String>>) inputStream.readObject();
+                    inputStream.close();
+                } catch(Exception e){
+
+                }
                 for(Level level : levels){
                     MultiSelectListPreference pref = new MultiSelectListPreference(getActivity());
                     pref.setTitle(level.getLibelle());
                     String[] listKey = new String[level.getGroups().size()];
                     String[] listValues = new String[level.getGroups().size()];
+                    pref.setPersistent(true);
                     int i = 0;
                     for(Group group : level.getGroups()){
                         listKey[i] = group.getLibelle();
@@ -338,12 +485,34 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                                 listValues[i] = res;
                             j++;
                         }
-
-
+                        listVal.add(listValues[i]);
                         i++;
                     }
                     pref.setEntries(listKey);
                     pref.setEntryValues(listValues);
+                    if(savePref.containsKey(level.getLibelle()))
+                        pref.setDefaultValue(savePref.get(level.getLibelle()));
+                    pref.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                        @Override
+                        public boolean onPreferenceChange(Preference preference, Object newValue) {
+                            Log.d("Changement de pref",newValue.toString());
+                            SharedPreferences sharedPref = getActivity().getPreferences(Context.MODE_PRIVATE);
+                            SharedPreferences.Editor editor = sharedPref.edit();
+
+                            savePref.put(preference.toString(),(HashSet<String>)newValue);
+                            File file = new File(getActivity().getDir("data", MODE_PRIVATE), "map_preferences");
+                            ObjectOutputStream outputStream = null;
+                            try {
+                                outputStream = new ObjectOutputStream(new FileOutputStream(file));
+                                outputStream.writeObject(savePref);
+                                outputStream.flush();
+                                outputStream.close();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                            return true;
+                        }
+                    });
                     category.addPreference(pref);
                 }
                 setPreferenceScreen(screen);
@@ -353,44 +522,5 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             }
         }
 
-        private class AsynkTaskGroups extends AsyncTask<Long,Void,ArrayList<Group>> {
-
-            @Override
-            protected ArrayList<Group> doInBackground(Long ... params) {
-                GroupDAO ndao = new GroupDAO(EdtPreferenceFragment.this.getActivity());
-                ArrayList<Group> listGroups;
-                listGroups = ndao.listGroupeFromLevel(params[0]);
-                return listGroups;
-
-            }
-
-            // Méthode exécutée à la fin de l'execution de la tâche asynchrone
-            @Override
-            protected void onPostExecute(ArrayList<Group> groups) {
-                super.onPostExecute(groups);
-
-                PreferenceScreen screen = getPreferenceManager().createPreferenceScreen(getActivity());
-
-                PreferenceCategory category = new PreferenceCategory(getActivity());
-                category.setTitle("Choisir des ressources");
-
-                screen.addPreference(category);
-
-                MultiSelectListPreference pref = new MultiSelectListPreference(getActivity());
-                String[] listKey = new String[groups.size()];
-                String[] listValues = new String[groups.size()];
-                int i = 0;
-                for(Group group : groups){
-                    listKey[i] = group.getLibelle();
-                    listValues[i] = group.getId()+"";
-                    i++;
-                }
-                pref.setEntries(listKey);
-                pref.setEntryValues(listValues);
-                category.addPreference(pref);
-
-                setPreferenceScreen(screen);
-            }
-        }
     }
 }
