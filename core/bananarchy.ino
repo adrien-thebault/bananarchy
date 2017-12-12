@@ -9,17 +9,18 @@
 #include "Screen.h"
 #include "Temperature.h"
 
+
 /* ----- CONSTANTS ----- */
 
 // CREDENTIALS
 #define BT_NAME "ThingzBT"
 #define BT_PASSWORD "1234"
 
-// DATA TYPES
-#define DATA_AGENDA 1;
-#define DATA_WEATHER 2;
-#define DATA_TRAVEL_TIME 3;
-#define DATA_TIMESTAMP 4;
+// DATA HEADER
+#define HEADER_AGENDA "AGENDA";
+#define HEADER_WEATHER "WEATHER";
+#define HEADER_TRAVEL_TIME "TRAVEL_TIME";
+#define HEADER_TIMESTAMP "TIMESTAMP";
 
 // Notes
 #define SILENCE 0
@@ -63,15 +64,6 @@
 // OTHERS
 #define TEMPO 190
 #define LUMINOSITY_THRESHOLD 10
-
-
-/* ----- TYPES ----- */
-
-typedef struct
-{
-  byte type;
-  String data;
-} Data;
 
 
 /* ----- VARIABLES ----- */
@@ -228,33 +220,35 @@ void updateDisplay()
 
 /* ----- CALLBACKS ----- */
 
-void onAgenda(const Data d)
+void onAgenda(String* data)
 {
-	// TODO : SPLIT LES DATA RECUES
-	String* parsed = split(d.data, ";");
+	agendaName = data[0];
+	agendaBeginAt = data[1].toInt();
 
-	agendaBeginAt = parsed[1].toInt();
-	agendaName = parsed[0];
+	delete[] data;
 }
 
-void onWeather(const Data d)
+void onWeather(String* data)
 {
-	// TODO : SPLIT LES DATA RECUES
-	String* parsed = split(d.data, ";");
+	weatherType = data[0];
+	weatherTemp = data[1].toInt();
 
-	weatherType = parsed[0];
-	weatherTemp = parsed[1].toInt();
+	delete[] data;
 }
 
-void onTravelTime(const Data d)
+void onTravelTime(String* data)
 {
-	travelTime = d.data.toInt();
+	travelTime = data[0].toInt();
+
+	delete[] data;
 }
 
-void onTimestamp(const Data d)
+void onTimestamp(String* data)
 {
 	initMillis = millis() / 1000;
-	initTimestamp = d.data.toInt() * 1000;
+	initTimestamp = data[0].toInt() * 1000;
+
+	delete[] data;
 }
 
 unsigned int getCurrentTimestamp()
@@ -264,43 +258,23 @@ unsigned int getCurrentTimestamp()
 
 /* ----- COMMUNICATION ----- */
 
-void connectBluetooth() {
-	bluetooth.acceptConnection(BT_NAME);
-}
-
-Data readFromBluetooth()
+void receivedFromBluetooth()
 {
-	Data res;
-	String raw_data = "";
+	String buffer = "";
 
-	//reception of raw data
-	if(bluetooth.dataAvailable())
-	{
-		raw_data = bluetooth.receive();
-	}
-	//splitting data to retrieve data type
-	String* parsed = split(raw_data, ":");
-	
-	//fill Data structure 
-	if(parsed[0] == "AGENDA")
-	{
-		res.type = DATA_AGENDA;
-		res.data = parsed[1];
-	}else if(parsed[0] == "WEATHER")
-	{
-		res.type = DATA_WEATHER;
-		res.data = parsed[1];
-	}else if(parsed[0] == "TRAVEL_TIME")
-	{
-		res.type = DATA_TRAVEL_TIME;
-		res.data = parsed[1];
-	}else if(parsed[0] == "TIMESTAMP")
-	{
-		res.type = DATA_TIMESTAMP;
-		res.data = parsed[1];
-	}
+	if (bluetooth.dataAvailable())
+		buffer = bluetooth.receive();
 
-	return res;
+	if (buffer.startWith(HEADER_AGENDA))
+		onAgenda(split(buffer[HEADER_AGENDA.length], ";"));
+	else if (buffer.startWith(HEADER_WEATHER))
+		onWeather(split(buffer[HEADER_WEATHER.length], ";"));
+	else if (buffer.startWith(HEADER_TRAVEL_TIME))
+		onTravelTime(split(buffer[HEADER_TRAVEL_TIME.length], ";"));
+	else if (buffer.startWith(HEADER_TIMESTAMP))
+		onTimestamp(split(buffer[HEADER_TIMESTAMP.length], ";"));
+
+	return received;
 }
 
 /* ----- MAIN ----- */
@@ -309,17 +283,12 @@ void loop()
 {
 	// Button actions
 	if (button1.estTenuAppuye())
-		connectBluetooth();
+		bluetooth.acceptConnection(BT_NAME);
 	if (button2.estTenuAppuye())
 		sendEmail();
 
 	// Callbacks on received data
-	data = readFromBluetooth();
-
-	if (data.type == DATA_AGENDA) onAgenda(data);
-	if (data.type == DATA_WEATHER) onWeather(data);
-	if (data.type == DATA_TRAVEL_TIME) onTravelTime(data);
-	if (data.type == DATA_TIMESTAMP) onTimestamp(data);
+	data = receivedFromBluetooth();
 
 	/** do whatever we need to do */
 
