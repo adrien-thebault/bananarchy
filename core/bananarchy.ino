@@ -54,6 +54,18 @@
 #define TEMPO 190
 #define LUMINOSITY_THRESHOLD 10
 
+// DATA TYPES
+#define DATA_AGENDA 1;
+#define DATA_WEATHER 2;
+#define DATA_TRAVEL_TIME 3;
+#define DATA_TIMESTAMP 4;
+
+/* ----- TYPES ----- */
+
+typedef struct {
+  byte type;
+  char* data;
+} Data;
 
 /* ----- VARIABLES ----- */
 
@@ -73,6 +85,11 @@ Temperature temperature;
 
 unsigned int initTimestamp;
 unsigned int initMillis;
+unsigned int agendaBeginAt;
+char* agendaName;
+char* weatherType;
+int weatherTemp;
+int travelTime;
 
 
 /* ----- WIFI DRIVER ----- */
@@ -85,11 +102,7 @@ void setup()
 	Serial.begin(9600);
 	screen.setContrast(70, true);
 
-	// TODO
-	//initTimestamp;
-	initMillis = millis();
 }
-
 
 /* ----- FUNCTIONS ----- */
 
@@ -264,11 +277,83 @@ void makeACoffee()
 	relai.allumer(1, 1);
 }
 
+void updateDisplay() {
+
+	// TODO : ICI ON AFFICHE LES VARIABLES SUR l'ECRAN
+
+}
+
+/* ----- CALLBACKS ----- */
+
+void onAgenda(Data d) {
+
+	char* name;
+	unsigned int begin;
+
+	// TODO : SPLIT LES DATA RECUES
+
+	agendaBeginAt = begin;
+	agendaName = name;
+
+}
+
+void onWeather(Data d) {
+
+	char* type;
+	int temp;
+
+	// TODO : SPLIT LES DATA RECUES
+
+	weatherType = type;
+	weatherTemp = temp;
+
+}
+
+void onTravelTime(Data d) {
+	travelTime = d.data.toInt();
+}
+
+void onTimestamp(Data d) {
+
+	initMillis = millis()/1000;
+	initTimestamp = d.data.toInt()*1000;
+
+}
+
+unsigned int getCurrentTimestamp() {
+	return initTimestamp + (millis()/1000-initMillis);
+}
+
+/* ----- COMMUNICATION ----- */
+
+Data readFromBluetooth() {
+
+	Data res;
+
+	// TODO : COUCOU L'EQUIPE COMMUNICATION
+	// Y'A DES CONSTANTES POUR LE CHAMP TYPE (i.e. DATA_AGENDA, ...)
+
+	return res;
+
+}
 
 /* ----- MAIN ----- */
 
 void loop()
 {
+
+	/** callback sur les données reçues */
+	data = readFromBluetooth();
+
+	if(data.type == DATA_AGENDA) onAgenda(data);
+	if(data.type == DATA_WEATHER) onWeather(data);
+	if(data.type == DATA_TRAVEL_TIME) onTravelTime(data);
+	if(data.type == DATA_TIMESTAMP) onTimestamp(data);
+
+	/** do whatever we need to do */
+
+	updateDisplay();
+
 	if (luminosity.etat() <= LUMINOSITY_THRESHOLD) {
 		displayTime();
 
@@ -276,4 +361,5 @@ void loop()
 			alarm();
 		}
 	}
+
 }
