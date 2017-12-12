@@ -230,24 +230,20 @@ void updateDisplay()
 
 void onAgenda(const Data d)
 {
-	String name;
-	unsigned int begin;
-
 	// TODO : SPLIT LES DATA RECUES
+	String* parsed = split(d.data, ";");
 
-	agendaBeginAt = begin;
-	agendaName = name;
+	agendaBeginAt = parsed[1].toInt();
+	agendaName = parsed[0];
 }
 
 void onWeather(const Data d)
 {
-	String type;
-	int temp;
-
 	// TODO : SPLIT LES DATA RECUES
+	String* parsed = split(d.data, ";");
 
-	weatherType = type;
-	weatherTemp = temp;
+	weatherType = parsed[0];
+	weatherTemp = parsed[1].toInt();
 }
 
 void onTravelTime(const Data d)
@@ -269,7 +265,6 @@ unsigned int getCurrentTimestamp()
 /* ----- COMMUNICATION ----- */
 
 void connectBluetooth() {
-	// TODO : A VOIR POUR LE BOOL
 	bluetooth.acceptConnection(BT_NAME);
 }
 
