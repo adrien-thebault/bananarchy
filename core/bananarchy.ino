@@ -108,6 +108,43 @@ void setup()
 
 }
 
+
+/* ----- USEFUL FUNCTIONS ----- */
+
+void split(const String str, char delim, const int limit)
+{
+	/*char* line = str.c_str();
+	int base = 0, i = 0, cpt = 0, anti = 0;
+	char[s.size()][s.size()] values;
+	for (i = 0; i < str.size(); ++i)
+	{
+		if (line[i] == "\"" && ((anti&1 == 1)))
+			cpt++;
+		else if (line[i] == "\\")
+			anti++;
+		if (cpt > 0 && ((cpt & 1) == 0))
+		{
+			anti = 0;
+			cpt = 0;
+			strcpy(values[j++], item.substr(base, i).c_str());
+			base = i + 1;
+		}
+	}
+
+	return values;*/
+}
+
+void note(const float note, const float duration)
+{
+	if (note == SILENCE)
+	{
+		buzzer.arreteDeSonner();
+		attendre(duration * 60000 / TEMPO);
+	} else
+		buzzer.tone(note, duration * 60000 / TEMPO);
+}
+
+
 /* ----- FUNCTIONS ----- */
 
 void displayTime()
@@ -116,16 +153,6 @@ void displayTime()
 		screen.switchOn();
 	else
 		screen.switchOff();
-}
-
-void note(float note, float duration)
-{
-	if (note == SILENCE)
-	{
-		buzzer.arreteDeSonner();
-		attendre(duration * 60000 / TEMPO);
-	} else
-		buzzer.tone(note, duration * 60000 / TEMPO);
 }
 
 void alarm()
@@ -182,9 +209,14 @@ void alarm()
 		}
 }
 
-void makeACoffee()
+void makeCoffee()
 {
 	relai.allumer(1, 1);
+}
+
+void sendEmal()
+{
+
 }
 
 void updateDisplay()
@@ -196,7 +228,7 @@ void updateDisplay()
 
 /* ----- CALLBACKS ----- */
 
-void onAgenda(Data d)
+void onAgenda(const Data d)
 {
 	String name;
 	unsigned int begin;
@@ -207,7 +239,7 @@ void onAgenda(Data d)
 	agendaName = name;
 }
 
-void onWeather(Data d)
+void onWeather(const Data d)
 {
 	String type;
 	int temp;
@@ -218,12 +250,12 @@ void onWeather(Data d)
 	weatherTemp = temp;
 }
 
-void onTravelTime(Data d)
+void onTravelTime(const Data d)
 {
 	travelTime = d.data.toInt();
 }
 
-void onTimestamp(Data d)
+void onTimestamp(const Data d)
 {
 	initMillis = millis() / 1000;
 	initTimestamp = d.data.toInt() * 1000;
@@ -255,10 +287,13 @@ Data readFromBluetooth()
 
 void loop()
 {
+	// Button actions
 	if (button1.estTenuAppuye())
 		connectBluetooth();
+	if (button2.estTenuAppuye())
+		sendEmail();
 
-	/** Callbacks sur les données reçues */
+	// Callbacks on received data
 	data = readFromBluetooth();
 
 	if (data.type == DATA_AGENDA) onAgenda(data);
