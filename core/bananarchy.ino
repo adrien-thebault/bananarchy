@@ -105,7 +105,7 @@ void setup()
 {
 	Serial.begin(9600);
 	screen.setContrast(70, true);
-
+	bluetooth.setPassword(BT_PASSWORD);
 }
 
 /* ----- FUNCTIONS ----- */
@@ -238,15 +238,19 @@ unsigned int getCurrentTimestamp()
 
 void connectBluetooth() {
 	// TODO : A VOIR POUR LE BOOL
-	bluetooth.connect(BT_NAME, BT_PASSWORD, bool);
+	bluetooth.acceptConnection(BT_NAME);
 }
 
 Data readFromBluetooth()
 {
 	Data res;
+	String raw_data = "";
 
-	// TODO : COUCOU L'EQUIPE COMMUNICATION
-	// Y'A DES CONSTANTES POUR LE CHAMP TYPE (i.e. DATA_AGENDA, ...)
+	if(bluetooth.dataAvailable())
+	{
+		raw_data = bluetooth.receive();
+	}
+	//à la recherche de la fonction split
 
 	return res;
 }
