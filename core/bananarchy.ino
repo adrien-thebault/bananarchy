@@ -8,6 +8,7 @@
 #include "Son.h"
 #include "Screen.h"
 #include "Temperature.h"
+#include "Bluetooth.h"
 
 
 /* ----- CONSTANTS ----- */
@@ -17,10 +18,10 @@
 #define BT_PASSWORD "1234"
 
 // DATA HEADER
-#define HEADER_AGENDA "AGENDA";
-#define HEADER_WEATHER "WEATHER";
-#define HEADER_TRAVEL_TIME "TRAVEL_TIME";
-#define HEADER_TIMESTAMP "TIMESTAMP";
+#define HEADER_AGENDA "AGENDA"
+#define HEADER_WEATHER "WEATHER"
+#define HEADER_TRAVEL_TIME "TRAVEL_TIME"
+#define HEADER_TIMESTAMP "TIMESTAMP"
 
 // Notes
 #define SILENCE 0
@@ -81,6 +82,7 @@ Relai relai;
 Son buzzer;
 Screen screen;
 Temperature temperature;
+Bluetooth bluetooth;
 
 unsigned int initTimestamp;
 unsigned int initMillis;
@@ -103,7 +105,7 @@ void setup()
 
 /* ----- USEFUL FUNCTIONS ----- */
 
-void split(const String str, char delim, const int limit)
+String split(const String str, const char delim)
 {
 	/*char* line = str.c_str();
 	int base = 0, i = 0, cpt = 0, anti = 0;
@@ -124,9 +126,10 @@ void split(const String str, char delim, const int limit)
 	}
 
 	return values;*/
+  return "";
 }
 
-void note(const float note, const float duration)
+void note(const unsigned int note, const float duration)
 {
 	if (note == SILENCE)
 	{
@@ -150,8 +153,7 @@ void displayTime()
 void alarm()
 {
 	// Music : He's a pirate
-	int notes[] = [
-		RE3, RE3, RE3, MI,
+	int notes[] = { RE3, RE3, RE3, MI3,
 		FA3, FA3, FA3, SOL3,
 		MI3, MI3, RE3, DO3,
 		DO3, RE3, SILENCE, LA2, SI2,
@@ -166,11 +168,9 @@ void alarm()
 		FA3, FA3, SOL3,
 		LA3, RE3, SILENCE, RE3, FA3,
 		MI3, MI3, FA3, RE3,
-		MI3, SILENCE
-	];
+		MI3, SILENCE };
 
-	int durations[] = [
-		QUARTER, QUARTER, EIGTH, EIGTH,
+	float durations[] = { QUARTER, QUARTER, EIGTH, EIGTH,
 		QUARTER, QUARTER, EIGTH, EIGTH,
 		QUARTER, QUARTER, EIGTH, EIGTH,
 		EIGTH, QUARTER, EIGTH, EIGTH, EIGTH,
@@ -185,12 +185,11 @@ void alarm()
 		QUARTER, QUARTER, QUARTER,
 		EIGTH, QUARTER, EIGTH, EIGTH, EIGTH,
 		QUARTER, QUARTER, EIGTH, EIGTH,
-		QUARTER, QUARTER
-	];
+		QUARTER, QUARTER };
 
 	bool stop = false;
 	while (!stop)
-		for (byte i = 0; i < notes.length; ++i)
+		for (byte i = 0; i < sizeof(notes)/sizeof(notes[0]); ++i)
 		{
 			note(notes[i], durations[i]);
 			if (makey.touched())
@@ -220,7 +219,7 @@ void updateDisplay()
 
 /* ----- CALLBACKS ----- */
 
-void onAgenda(String* data)
+void onAgenda(ParsedData data)
 {
 	agendaName = data[0];
 	agendaBeginAt = data[1].toInt();
@@ -228,7 +227,7 @@ void onAgenda(String* data)
 	delete[] data;
 }
 
-void onWeather(String* data)
+void onWeather(ParsedData data)
 {
 	weatherType = data[0];
 	weatherTemp = data[1].toInt();
@@ -236,14 +235,14 @@ void onWeather(String* data)
 	delete[] data;
 }
 
-void onTravelTime(String* data)
+void onTravelTime(ParsedData data)
 {
 	travelTime = data[0].toInt();
 
 	delete[] data;
 }
 
-void onTimestamp(String* data)
+void onTimestamp(ParsedData data)
 {
 	initMillis = millis() / 1000;
 	initTimestamp = data[0].toInt() * 1000;
@@ -260,21 +259,21 @@ unsigned int getCurrentTimestamp()
 
 void receivedFromBluetooth()
 {
+
 	String buffer = "";
 
 	if (bluetooth.dataAvailable())
 		buffer = bluetooth.receive();
 
-	if (buffer.startWith(HEADER_AGENDA))
-		onAgenda(split(buffer[HEADER_AGENDA.length], ";"));
-	else if (buffer.startWith(HEADER_WEATHER))
-		onWeather(split(buffer[HEADER_WEATHER.length], ";"));
-	else if (buffer.startWith(HEADER_TRAVEL_TIME))
-		onTravelTime(split(buffer[HEADER_TRAVEL_TIME.length], ";"));
-	else if (buffer.startWith(HEADER_TIMESTAMP))
-		onTimestamp(split(buffer[HEADER_TIMESTAMP.length], ";"));
+	if (buffer.startsWith(HEADER_AGENDA))
+		onAgenda(split(buffer.substring(7), ';'));
+	else if (buffer.startsWith(HEADER_WEATHER))
+		onWeather(split(buffer.substring(8), ';'));
+	else if (buffer.startsWith(HEADER_TRAVEL_TIME))
+		onTravelTime(split(buffer.substring(12), ';'));
+	else if (buffer.startsWith(HEADER_TIMESTAMP))
+		onTimestamp(split(buffer.substring(10), ';'));
 
-	return received;
 }
 
 /* ----- MAIN ----- */
@@ -287,8 +286,7 @@ void loop()
 	if (button2.estTenuAppuye())
 		sendEmail();
 
-	// Callbacks on received data
-	data = receivedFromBluetooth();
+	receivedFromBluetooth();
 
 	/** do whatever we need to do */
 
