@@ -7,5 +7,6 @@ Rails.application.routes.draw do
   get 'data/agenda', to:'data#agenda'
   get 'data/travel_time', to:'data#travel_time'
   get 'data/timestamp', to:'data#timestamp'
+  post 'data/send_mail', to: 'data#send_mail'
   # For details on the DSL available within this file, see http://guides.rubyonrails.org/routing.html
 end

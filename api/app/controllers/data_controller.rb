@@ -36,6 +36,11 @@ class DataController < ApplicationController
     render :json => Time.now.getutc.to_i
   end
 
+  # POST /data/send_mail
+  def send_mail
+    PazatMailer.oops.deliver_now
+  end
+
   private
 
     def get_settings
