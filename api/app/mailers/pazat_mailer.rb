@@ -2,7 +2,7 @@ class PazatMailer < ApplicationMailer
 
   def oops
 
-    mail(to: "adrien.thebault@insa-rennes.fr",
+    mail(to: "pierre.boulch@insa-rennes.fr",
          body: "Bonjoure,<br />
 
          Je ne serait pas présant se matein en court.<br /><br />
