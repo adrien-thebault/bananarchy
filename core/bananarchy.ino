@@ -64,7 +64,7 @@
 
 typedef struct {
   byte type;
-  char* data;
+  String data;
 } Data;
 
 /* ----- VARIABLES ----- */
@@ -86,8 +86,8 @@ Temperature temperature;
 unsigned int initTimestamp;
 unsigned int initMillis;
 unsigned int agendaBeginAt;
-char* agendaName;
-char* weatherType;
+String agendaName;
+String weatherType;
 int weatherTemp;
 int travelTime;
 
@@ -287,7 +287,7 @@ void updateDisplay() {
 
 void onAgenda(Data d) {
 
-	char* name;
+	String name;
 	unsigned int begin;
 
 	// TODO : SPLIT LES DATA RECUES
@@ -299,7 +299,7 @@ void onAgenda(Data d) {
 
 void onWeather(Data d) {
 
-	char* type;
+	String type;
 	int temp;
 
 	// TODO : SPLIT LES DATA RECUES
