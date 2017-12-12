@@ -120,7 +120,6 @@ void note(float note, float duration)
 		attendre(duration * 60000 / TEMPO);
 	} else
 		buzzer.tone(note, duration * 60000 / TEMPO);
-	goto end;
 }
 
 void alarm()
