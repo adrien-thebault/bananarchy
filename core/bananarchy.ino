@@ -120,156 +120,59 @@ void note(float note, float duration)
 		attendre(duration * 60000 / TEMPO);
 	} else
 		buzzer.tone(note, duration * 60000 / TEMPO);
+	goto end;
 }
 
 void alarm()
 {
-	while (true) {
-		// Music : He's a pirate
-		if (makey.touched()) break;
-		note(RE3, QUARTER);
-		if (makey.touched()) break;
-		note(RE3, QUARTER);
-		if (makey.touched()) break;
-		note(RE3, EIGTH);
-		if (makey.touched()) break;
-		note(MI3, EIGTH);
+	// Music : He's a pirate
+	int notes[] = [
+		RE3, RE3, RE3, MI,
+		FA3, FA3, FA3, SOL3,
+		MI3, MI3, RE3, DO3,
+		DO3, RE3, SILENCE, LA2, SI2,
+		RE3, RE3, RE3, MI3,
+		FA3, FA3, FA3, SOL3,
+		MI3, MI3, RE3, DO3,
+		RE3, SILENCE, LA2, DO3,
+		RE3, RE3, RE3, FA3,
+		SOL3, SOL3, SOL3, LA3,
+		SI3, SI3, LA3, SOL3,
+		LA3, RE3, SILENCE, RE3, MI3,
+		FA3, FA3, SOL3,
+		LA3, RE3, SILENCE, RE3, FA3,
+		MI3, MI3, FA3, RE3,
+		MI3, SILENCE
+	];
 
-		if (makey.touched()) break;
-		note(FA3, QUARTER);
-		if (makey.touched()) break;
-		note(FA3, QUARTER);
-		if (makey.touched()) break;
-		note(FA3, EIGTH);
-		if (makey.touched()) break;
-		note(SOL3, EIGTH);
+	int durations[] = [
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		EIGTH, QUARTER, EIGTH, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		EIGTH, QUARTER, EIGTH, EIGTH, EIGTH,
+		QUARTER, QUARTER, QUARTER,
+		EIGTH, QUARTER, EIGTH, EIGTH, EIGTH,
+		QUARTER, QUARTER, EIGTH, EIGTH,
+		QUARTER, QUARTER
+	];
 
-		if (makey.touched()) break;
-		note(MI3, QUARTER);
-		if (makey.touched()) break;
-		note(MI3, QUARTER);
-		if (makey.touched()) break;
-		note(RE3, EIGTH);
-		if (makey.touched()) break;
-		note(DO3, EIGTH);
-
-		if (makey.touched()) break;
-		note(DO3, EIGTH);
-		if (makey.touched()) break;
-		note(RE3, QUARTER);
-		if (makey.touched()) break;
-		note(SILENCE, EIGTH);
-		if (makey.touched()) break;
-		note(LA2, EIGTH);
-		if (makey.touched()) break;
-		note(SI2, EIGTH);
-
-		if (makey.touched()) break;
-		note(RE3, QUARTER);
-		if (makey.touched()) break;
-		note(RE3, QUARTER);
-		if (makey.touched()) break;
-		note(RE3, EIGTH);
-		if (makey.touched()) break;
-		note(MI3, EIGTH);
-
-		if (makey.touched()) break;
-		note(FA3, QUARTER);
-		if (makey.touched()) break;
-		note(FA3, QUARTER);
-		if (makey.touched()) break;
-		note(FA3, EIGTH);
-		if (makey.touched()) break;
-		note(SOL3, EIGTH);
-
-		if (makey.touched()) break;
-		note(MI3, QUARTER);
-		if (makey.touched()) break;
-		note(MI3, QUARTER);
-		if (makey.touched()) break;
-		note(RE3, EIGTH);
-		if (makey.touched()) break;
-		note(DO3, EIGTH);
-
-		if (makey.touched()) break;
-		note(RE3,QUARTER);
-		if (makey.touched()) break;
-		note(SILENCE, QUARTER);
-		if (makey.touched()) break;
-		note(LA2, EIGTH);
-		if (makey.touched()) break;
-		note(DO3, EIGTH);
-
-		if (makey.touched()) break;
-		note(RE3, QUARTER);
-		if (makey.touched()) break;
-		note(RE3, QUARTER);
-		if (makey.touched()) break;
-		note(RE3, EIGTH);
-		if (makey.touched()) break;
-		note(FA3, EIGTH);
-
-		if (makey.touched()) break;
-		note(SOL3, QUARTER);
-		if (makey.touched()) break;
-		note(SOL3, QUARTER);
-		if (makey.touched()) break;
-		note(SOL3, EIGTH);
-		if (makey.touched()) break;
-		note(LA3, EIGTH);
-
-		if (makey.touched()) break;
-		note(SI3, QUARTER);
-		if (makey.touched()) break;
-		note(SI3, QUARTER);
-		if (makey.touched()) break;
-		note(LA3, EIGTH);
-		if (makey.touched()) break;
-		note(SOL3, EIGTH);
-
-		if (makey.touched()) break;
-		note(LA3, EIGTH);
-		if (makey.touched()) break;
-		note(RE3, QUARTER);
-		if (makey.touched()) break;
-		note(SILENCE, EIGTH);
-		if (makey.touched()) break;
-		note(RE3, EIGTH);
-		if (makey.touched()) break;
-		note(MI3, EIGTH);
-
-		if (makey.touched()) break;
-		note(FA3, QUARTER);
-		if (makey.touched()) break;
-		note(FA3, QUARTER);
-		if (makey.touched()) break;
-		note(SOL3, QUARTER);
-
-		if (makey.touched()) break;
-		note(LA3, EIGTH);
-		if (makey.touched()) break;
-		note(RE3, QUARTER);
-		if (makey.touched()) break;
-		note(SILENCE, EIGTH);
-		if (makey.touched()) break;
-		note(RE3, EIGTH);
-		if (makey.touched()) break;
-		note(FA3, EIGTH);
-
-		if (makey.touched()) break;
-		note(MI3, QUARTER);
-		if (makey.touched()) break;
-		note(MI3, QUARTER);
-		if (makey.touched()) break;
-		note(FA3, EIGTH);
-		if (makey.touched()) break;
-		note(RE3, EIGTH);
-
-		if (makey.touched()) break;
-		note(MI3, QUARTER);
-		if (makey.touched()) break;
-		note(SILENCE, QUARTER);
-	}
+	bool stop = false;
+	while (!stop)
+		for (byte i = 0; i < notes.length; ++i) {
+			note(notes[i], durations[i]);
+			if (makey.touched()) {
+				stop = true;
+				break;
+			}
+		}
 }
 
 void makeACoffee()
