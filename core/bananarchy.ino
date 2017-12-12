@@ -11,6 +11,16 @@
 
 /* ----- CONSTANTS ----- */
 
+// CREDENTIALS
+#define BT_NAME "ThingzBT"
+#define BT_PASSWORD "1234"
+
+// DATA TYPES
+#define DATA_AGENDA 1;
+#define DATA_WEATHER 2;
+#define DATA_TRAVEL_TIME 3;
+#define DATA_TIMESTAMP 4;
+
 // Notes
 #define SILENCE 0
 // Octave 2
@@ -54,18 +64,15 @@
 #define TEMPO 190
 #define LUMINOSITY_THRESHOLD 10
 
-// DATA TYPES
-#define DATA_AGENDA 1;
-#define DATA_WEATHER 2;
-#define DATA_TRAVEL_TIME 3;
-#define DATA_TIMESTAMP 4;
 
 /* ----- TYPES ----- */
 
-typedef struct {
+typedef struct
+{
   byte type;
   String data;
 } Data;
+
 
 /* ----- VARIABLES ----- */
 
@@ -92,9 +99,6 @@ int weatherTemp;
 int travelTime;
 
 
-/* ----- WIFI DRIVER ----- */
-
-
 /* ----- SETUP ----- */
 
 void setup()
@@ -106,7 +110,8 @@ void setup()
 
 /* ----- FUNCTIONS ----- */
 
-void displayTime() {
+void displayTime()
+{
 	if (motionSensor.detectsMotion())
 		screen.switchOn();
 	else
@@ -115,7 +120,8 @@ void displayTime() {
 
 void note(float note, float duration)
 {
-	if (note == SILENCE) {
+	if (note == SILENCE)
+	{
 		buzzer.arreteDeSonner();
 		attendre(duration * 60000 / TEMPO);
 	} else
@@ -165,9 +171,11 @@ void alarm()
 
 	bool stop = false;
 	while (!stop)
-		for (byte i = 0; i < notes.length; ++i) {
+		for (byte i = 0; i < notes.length; ++i)
+		{
 			note(notes[i], durations[i]);
-			if (makey.touched()) {
+			if (makey.touched())
+			{
 				stop = true;
 				break;
 			}
@@ -179,7 +187,8 @@ void makeACoffee()
 	relai.allumer(1, 1);
 }
 
-void updateDisplay() {
+void updateDisplay()
+{
 
 	// TODO : ICI ON AFFICHE LES VARIABLES SUR l'ECRAN
 
@@ -187,8 +196,8 @@ void updateDisplay() {
 
 /* ----- CALLBACKS ----- */
 
-void onAgenda(Data d) {
-
+void onAgenda(Data d)
+{
 	String name;
 	unsigned int begin;
 
@@ -196,11 +205,10 @@ void onAgenda(Data d) {
 
 	agendaBeginAt = begin;
 	agendaName = name;
-
 }
 
-void onWeather(Data d) {
-
+void onWeather(Data d)
+{
 	String type;
 	int temp;
 
@@ -208,60 +216,66 @@ void onWeather(Data d) {
 
 	weatherType = type;
 	weatherTemp = temp;
-
 }
 
-void onTravelTime(Data d) {
+void onTravelTime(Data d)
+{
 	travelTime = d.data.toInt();
 }
 
-void onTimestamp(Data d) {
-
-	initMillis = millis()/1000;
-	initTimestamp = d.data.toInt()*1000;
-
+void onTimestamp(Data d)
+{
+	initMillis = millis() / 1000;
+	initTimestamp = d.data.toInt() * 1000;
 }
 
-unsigned int getCurrentTimestamp() {
-	return initTimestamp + (millis()/1000-initMillis);
+unsigned int getCurrentTimestamp()
+{
+	return initTimestamp + (millis() / 1000 - initMillis);
 }
 
 /* ----- COMMUNICATION ----- */
 
-Data readFromBluetooth() {
+void connectBluetooth() {
+	// TODO : A VOIR POUR LE BOOL
+	bluetooth.connect(BT_NAME, BT_PASSWORD, bool);
+}
 
+Data readFromBluetooth()
+{
 	Data res;
 
 	// TODO : COUCOU L'EQUIPE COMMUNICATION
 	// Y'A DES CONSTANTES POUR LE CHAMP TYPE (i.e. DATA_AGENDA, ...)
 
 	return res;
-
 }
 
 /* ----- MAIN ----- */
 
 void loop()
 {
+	if (button1.estTenuAppuye())
+		connectBluetooth();
 
-	/** callback sur les données reçues */
+	/** Callbacks sur les données reçues */
 	data = readFromBluetooth();
 
-	if(data.type == DATA_AGENDA) onAgenda(data);
-	if(data.type == DATA_WEATHER) onWeather(data);
-	if(data.type == DATA_TRAVEL_TIME) onTravelTime(data);
-	if(data.type == DATA_TIMESTAMP) onTimestamp(data);
+	if (data.type == DATA_AGENDA) onAgenda(data);
+	if (data.type == DATA_WEATHER) onWeather(data);
+	if (data.type == DATA_TRAVEL_TIME) onTravelTime(data);
+	if (data.type == DATA_TIMESTAMP) onTimestamp(data);
 
 	/** do whatever we need to do */
 
 	updateDisplay();
 
-	if (luminosity.etat() <= LUMINOSITY_THRESHOLD) {
+	if (luminosity.etat() <= LUMINOSITY_THRESHOLD)
+	{
 		displayTime();
 
 		if (false) {
 			alarm();
 		}
 	}
-
 }
