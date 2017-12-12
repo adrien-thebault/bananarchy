@@ -51,7 +51,9 @@ class DataController < ApplicationController
 
     # Agenda
     def get_agenda
-      JSON.parse(RestClient.get("https://edt.adrien-thebault.fr/api/calendar.json?begin=#{Time.now.getutc.to_i.to_s}&end=#{(Time.now.getutc.to_i + 86400).to_s}&resources=#{@settings[:agenda]}"), :symbolize_names => true)[:calendar].first
+      JSON.parse(RestClient.get("https://edt.adrien-thebault.fr/api/calendar.json?begin=#{Time.now.getutc.to_i.to_s}&end=#{(Time.now.getutc.to_i + 86400).to_s}&resources=#{@settings[:agenda]}"), :symbolize_names => true)[:calendar].first do |x|
+        !x.ended
+      end
     end
 
     # Weather
