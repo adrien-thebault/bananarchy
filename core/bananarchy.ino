@@ -278,11 +278,32 @@ Data readFromBluetooth()
 	Data res;
 	String raw_data = "";
 
+	//reception of raw data
 	if(bluetooth.dataAvailable())
 	{
 		raw_data = bluetooth.receive();
 	}
-	//à la recherche de la fonction split
+	//splitting data to retrieve data type
+	String* parsed = split(raw_data, ":");
+	
+	//fill Data structure 
+	if(parsed[0] == "AGENDA")
+	{
+		res.type = DATA_AGENDA;
+		res.data = parsed[1];
+	}else if(parsed[0] == "WEATHER")
+	{
+		res.type = DATA_WEATHER;
+		res.data = parsed[1];
+	}else if(parsed[0] == "TRAVEL_TIME")
+	{
+		res.type = DATA_TRAVEL_TIME;
+		res.data = parsed[1];
+	}else if(parsed[0] == "TIMESTAMP")
+	{
+		res.type = DATA_TIMESTAMP;
+		res.data = parsed[1];
+	}
 
 	return res;
 }
