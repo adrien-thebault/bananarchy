@@ -13,11 +13,11 @@
 
 /* ----- CONSTANTS ----- */
 
-// CREDENTIALS
+// Credentials
 #define BT_NAME "ThingzBT"
 #define BT_PASSWORD "1234"
 
-// DATA HEADER
+// Data header
 #define HEADER_AGENDA "AGENDA"
 #define HEADER_WEATHER "WEATHER"
 #define HEADER_TRAVEL_TIME "TRAVEL_TIME"
@@ -62,7 +62,7 @@
 #define THIRTY_SECOND .125
 #define SIXTY_FOURTY .0625
 
-// OTHERS
+// Others
 #define TEMPO 190
 #define LUMINOSITY_THRESHOLD 10
 
@@ -93,46 +93,60 @@ int weatherTemp;
 int travelTime;
 
 
-/* ----- SETUP ----- */
+/* ----- CLASSES ----- */
 
-void setup()
-{
-	Serial.begin(9600);
-	screen.setContrast(70, true);
-	bluetooth.setPassword(BT_PASSWORD);
-}
+class Packet {
+private:
+	String value;
+	unsigned int index;
+	Packet* next;
+
+public:
+	Packet() : next(nullptr) {}
+
+	~Packet() {
+		if (next != nullptr)
+			delete next;
+	}
+
+	String get(const unsigned int index) const {
+		return this->index == index ? value : (next != nullptr ? next->get(index) : "");
+	}
+
+	void add(const unsigned int index, const String value) {
+		if (next == nullptr) {
+			this->index = index;
+			this->value = value;
+			next = new Packet();
+		}
+	}
+};
 
 
 /* ----- USEFUL FUNCTIONS ----- */
 
-String split(const String str, const char delim)
-{
-	/*char* line = str.c_str();
-	int base = 0, i = 0, cpt = 0, anti = 0;
-	char[s.size()][s.size()] values;
-	for (i = 0; i < str.size(); ++i)
-	{
-		if (line[i] == "\"" && ((anti&1 == 1)))
-			cpt++;
-		else if (line[i] == "\\")
-			anti++;
-		if (cpt > 0 && ((cpt & 1) == 0))
-		{
+Packet* split(const String line, const char delim) {
+	Packet* packet = new Packet();
+	unsigned int size = line.length();
+	for (unsigned int base = 0, i = 0, cpt = 0, anti = 0, j = 0; i < size; ++i) {
+		if (line[i] == '\"' && ((anti & 1) == 1))
+			++cpt;
+		else if (line[i] == '\\')
+			++anti;
+		else if (line[i] == delim || ((cpt & 1) == 0)) {
 			anti = 0;
+			int tmp = !!cpt;
+			packet->add(j++, line.substring(tmp + base, i - tmp));
 			cpt = 0;
-			strcpy(values[j++], item.substr(base, i).c_str());
 			base = i + 1;
 		}
 	}
 
-	return values;*/
-  return "";
+	return packet;
 }
 
-void note(const unsigned int note, const float duration)
-{
-	if (note == SILENCE)
-	{
+void note(const unsigned int note, const float duration) {
+	if (note == SILENCE) {
 		buzzer.arreteDeSonner();
 		attendre(duration * 60000 / TEMPO);
 	} else
@@ -140,20 +154,28 @@ void note(const unsigned int note, const float duration)
 }
 
 
+/* ----- SETUP ----- */
+
+void setup() {
+	Serial.begin(9600);
+	screen.setContrast(70, true);
+	bluetooth.setPassword(BT_PASSWORD);
+}
+
+
 /* ----- FUNCTIONS ----- */
 
-void displayTime()
-{
+void displayTime() {
 	if (motionSensor.detectsMotion())
 		screen.switchOn();
 	else
 		screen.switchOff();
 }
 
-void alarm()
-{
+void alarm() {
 	// Music : He's a pirate
-	int notes[] = { RE3, RE3, RE3, MI3,
+	int notes[] = {
+		RE3, RE3, RE3, MI3,
 		FA3, FA3, FA3, SOL3,
 		MI3, MI3, RE3, DO3,
 		DO3, RE3, SILENCE, LA2, SI2,
@@ -168,9 +190,11 @@ void alarm()
 		FA3, FA3, SOL3,
 		LA3, RE3, SILENCE, RE3, FA3,
 		MI3, MI3, FA3, RE3,
-		MI3, SILENCE };
+		MI3, SILENCE
+	};
 
-	float durations[] = { QUARTER, QUARTER, EIGTH, EIGTH,
+	float durations[] = {
+		QUARTER, QUARTER, EIGTH, EIGTH,
 		QUARTER, QUARTER, EIGTH, EIGTH,
 		QUARTER, QUARTER, EIGTH, EIGTH,
 		EIGTH, QUARTER, EIGTH, EIGTH, EIGTH,
@@ -185,7 +209,8 @@ void alarm()
 		QUARTER, QUARTER, QUARTER,
 		EIGTH, QUARTER, EIGTH, EIGTH, EIGTH,
 		QUARTER, QUARTER, EIGTH, EIGTH,
-		QUARTER, QUARTER };
+		QUARTER, QUARTER
+	};
 
 	bool stop = false;
 	while (!stop)
@@ -200,18 +225,15 @@ void alarm()
 		}
 }
 
-void makeCoffee()
-{
+void makeCoffee() {
 	relai.allumer(1, 1);
 }
 
-void sendEmal()
-{
+void sendEmail() {
 
 }
 
-void updateDisplay()
-{
+void updateDisplay() {
 
 	// TODO : ICI ON AFFICHE LES VARIABLES SUR l'ECRAN
 
@@ -219,46 +241,40 @@ void updateDisplay()
 
 /* ----- CALLBACKS ----- */
 
-void onAgenda(ParsedData data)
-{
-	agendaName = data[0];
-	agendaBeginAt = data[1].toInt();
+void onAgenda(String rawData) {
+	Packet* data = split(rawData, ';');
 
-	delete[] data;
+	agendaName = data->get(0);
+	agendaBeginAt = data->get(1).toInt();
+
+	delete data;
 }
 
-void onWeather(ParsedData data)
-{
-	weatherType = data[0];
-	weatherTemp = data[1].toInt();
+void onWeather(String rawData) {
+	Packet* data = split(rawData, ';');
 
-	delete[] data;
+	weatherType = data->get(0);
+	weatherTemp = data->get(1).toInt();
+
+	delete data;
 }
 
-void onTravelTime(ParsedData data)
-{
-	travelTime = data[0].toInt();
-
-	delete[] data;
+void onTravelTime(String rawData) {
+	travelTime = rawData.toInt();
 }
 
-void onTimestamp(ParsedData data)
-{
+void onTimestamp(String rawData) {
 	initMillis = millis() / 1000;
-	initTimestamp = data[0].toInt() * 1000;
-
-	delete[] data;
+	initTimestamp = rawData.toInt() * 1000;
 }
 
-unsigned int getCurrentTimestamp()
-{
+unsigned int getCurrentTimestamp() {
 	return initTimestamp + (millis() / 1000 - initMillis);
 }
 
 /* ----- COMMUNICATION ----- */
 
-void receivedFromBluetooth()
-{
+void receivedFromBluetooth() {
 
 	String buffer = "";
 
@@ -266,20 +282,19 @@ void receivedFromBluetooth()
 		buffer = bluetooth.receive();
 
 	if (buffer.startsWith(HEADER_AGENDA))
-		onAgenda(split(buffer.substring(7), ';'));
+		onAgenda(buffer.substring(7));
 	else if (buffer.startsWith(HEADER_WEATHER))
-		onWeather(split(buffer.substring(8), ';'));
+		onWeather(buffer.substring(8));
 	else if (buffer.startsWith(HEADER_TRAVEL_TIME))
-		onTravelTime(split(buffer.substring(12), ';'));
+		onTravelTime(buffer.substring(12));
 	else if (buffer.startsWith(HEADER_TIMESTAMP))
-		onTimestamp(split(buffer.substring(10), ';'));
+		onTimestamp(buffer.substring(10));
 
 }
 
 /* ----- MAIN ----- */
 
-void loop()
-{
+void loop() {
 	// Button actions
 	if (button1.estTenuAppuye())
 		bluetooth.acceptConnection(BT_NAME);
@@ -292,8 +307,7 @@ void loop()
 
 	updateDisplay();
 
-	if (luminosity.etat() <= LUMINOSITY_THRESHOLD)
-	{
+	if (luminosity.etat() <= LUMINOSITY_THRESHOLD) {
 		displayTime();
 
 		if (false) {
