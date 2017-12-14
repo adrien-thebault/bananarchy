@@ -22,6 +22,7 @@
 #define HEADER_WEATHER "WEATHER"
 #define HEADER_TRAVEL_TIME "TRAVEL_TIME"
 #define HEADER_TIMESTAMP "TIMESTAMP"
+#define HEADER_EMAIL "PAZAT"
 
 // Notes
 #define SILENCE 0
@@ -66,14 +67,19 @@
 #define TEMPO 190
 #define LUMINOSITY_THRESHOLD 10
 
+// Months
+static const String months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+static const byte monthDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
 
 /* ----- VARIABLES ----- */
 
-Bouton button1;
-Bouton button2;
-Led red;
-Led white;
+Bouton buttonConnect;
+Bouton buttonCourse;
+Bouton buttonMail;
 Led blue;
+Led white;
+Led red;
 Luminosite luminosity;
 MakeyMakey makey;
 MotionSensor motionSensor;
@@ -81,15 +87,16 @@ Potentiometer potentiometer;
 Relai relai;
 Son buzzer;
 Screen screen;
-Temperature temperature;
+Temperature meteo;
 Bluetooth bluetooth;
 
 unsigned int initTimestamp;
 unsigned int initMillis;
-unsigned int agendaBeginAt;
-String agendaName;
+unsigned int startTime;
+String courseName;
+String courseLocation;
 String weatherType;
-int weatherTemp;
+int weatherTemperature;
 int travelTime;
 
 
@@ -129,13 +136,24 @@ Packet* split(const String line, const char delim) {
 	Packet* packet = new Packet();
 	unsigned int size = line.length();
 	for (unsigned int base = 0, i = 0, cpt = 0, anti = 0, j = 0; i < size; ++i) {
+		Serial.print("line: ");
+		Serial.println(line[i]);
+
 		if (line[i] == '\"' && ((anti & 1) == 1))
 			++cpt;
 		else if (line[i] == '\\')
 			++anti;
 		else if (line[i] == delim || ((cpt & 1) == 0)) {
 			anti = 0;
-			int tmp = !!cpt;
+			unsigned int tmp = !!cpt;
+			Serial.print(tmp);
+			Serial.print(" ");
+			Serial.print(base);
+			Serial.print(" ");
+			Serial.print(i);
+			Serial.print(" ");
+			Serial.print(tmp);
+			Serial.println(line.substring(tmp + base, i - tmp));
 			packet->add(j++, line.substring(tmp + base, i - tmp));
 			cpt = 0;
 			base = i + 1;
@@ -143,6 +161,18 @@ Packet* split(const String line, const char delim) {
 	}
 
 	return packet;
+}
+
+unsigned long getCurrentTimestamp() {
+	return initTimestamp + (millis() / 1000 - initMillis);
+}
+
+unsigned long modulo(unsigned long x, unsigned int y) {
+	return x - (x / y) * y;
+}
+
+bool isLeapYear(short year) {
+	return ((1970 + year) > 0) && !(modulo((1970 + year), 4)) && ((modulo((1970 + year), 100)) || !(modulo((1970 + year), 400)));
 }
 
 void note(const unsigned int note, const float duration) {
@@ -165,11 +195,91 @@ void setup() {
 
 /* ----- FUNCTIONS ----- */
 
-void displayTime() {
+void sendEmail() {
+	bluetooth.send(HEADER_EMAIL);
+}
+
+void screenBacklight() {
 	if (motionSensor.detectsMotion())
 		screen.switchOn();
 	else
 		screen.switchOff();
+}
+
+void displayData() {
+	unsigned long timestamp = getCurrentTimestamp();
+	timestamp /= 60; // Now it is minutes
+	byte minute = modulo(timestamp, 60);
+	timestamp /= 60; // now it is hours
+	byte hour = modulo(timestamp, 60);
+	timestamp /= 24; // now it is days
+
+	// Compute the year and the day
+	short year = 0;  
+	byte day = 0;
+	while ((unsigned)(day += (isLeapYear(year) ? 366 : 365)) <= timestamp)
+		year++;
+	day -= isLeapYear(year) ? 366 : 365;
+	timestamp -= day; // now it is days in this year, starting at 0
+
+	// Compute the month  and the day
+	byte month = 0;
+	byte monthLength = 0;
+	for (month = 0; month < 12; ++month) {
+		if (month == 1) // February
+			if (isLeapYear(year))
+				monthLength = 29;
+			else
+				monthLength = 28;
+		else
+			monthLength = monthDays[month];
+		
+		if (timestamp >= monthLength)
+			timestamp -= monthLength;
+		else
+			break;
+	}
+	day = timestamp + 1;
+
+	String abbreviation;
+	if (day == 1)
+		abbreviation = "st";
+	else if (day == 2)
+		abbreviation = "nd";
+	else if (day == 3)
+		abbreviation = "rd";
+	else
+		abbreviation = "th";
+	screen.printMsg(day + abbreviation + " " + months[month] + " " + year, 0);
+
+	String time = "";
+	// Add a zero before the hours
+	if (hour < 10)
+		time += "0";
+	time += hour + ":";
+	// Add a zero before the minutes
+	if (minute < 10)
+		time += "0";
+	time += minute;
+	screen.printMsg("    " + time, 2);
+
+	// LA PUTAIN DE SA MERE LA PUTE
+	String humidity = meteo.humidite() + "%";
+	String spaces = "";
+	for (byte i = humidity.length() + weatherType.length(); i < 13; ++i)
+		spaces += " ";
+	screen.printMsg(humidity + spaces + weatherType, 4);
+
+	String temperature1 = meteo.temperature() + "°C";
+	String temperature2 = weatherTemperature + "°C";
+	spaces = "";
+	for (byte i = temperature1.length() + temperature2.length(); i < 13; ++i)
+		spaces += " ";
+	screen.printMsg(temperature1 + spaces + temperature2, 5);
+}
+
+void displayCourse() {
+
 }
 
 void alarm() {
@@ -213,39 +323,40 @@ void alarm() {
 	};
 
 	bool stop = false;
+	screen.printMsg(" REVEIL TOI", 2);
+	screen.printMsg("  CONNARD !", 3);
 	while (!stop)
-		for (byte i = 0; i < sizeof(notes)/sizeof(notes[0]); ++i)
-		{
+		for (byte i = 0; i < sizeof(notes) / sizeof(notes[0]); ++i) {
 			note(notes[i], durations[i]);
-			if (makey.touched())
-			{
+			
+			if (makey.touched()) {
 				stop = true;
 				break;
 			}
 		}
+	displayData();
 }
 
 void makeCoffee() {
 	relai.allumer(1, 1);
 }
 
-void sendEmail() {
-
+void connect() {
+	screen.printMsg(" CONNECT TO", 2);
+	screen.printMsg("  DEVICE...", 3);
+	bluetooth.acceptConnection(BT_NAME);
+	displayData();
 }
 
-void updateDisplay() {
-
-	// TODO : ICI ON AFFICHE LES VARIABLES SUR l'ECRAN
-
-}
 
 /* ----- CALLBACKS ----- */
 
 void onAgenda(String rawData) {
 	Packet* data = split(rawData, ';');
 
-	agendaName = data->get(0);
-	agendaBeginAt = data->get(1).toInt();
+	startTime = data->get(0).toInt();
+	courseName = data->get(1);
+	courseLocation = data->get(2);
 
 	delete data;
 }
@@ -254,7 +365,7 @@ void onWeather(String rawData) {
 	Packet* data = split(rawData, ';');
 
 	weatherType = data->get(0);
-	weatherTemp = data->get(1).toInt();
+	weatherTemperature = data->get(1).toInt();
 
 	delete data;
 }
@@ -268,15 +379,11 @@ void onTimestamp(String rawData) {
 	initTimestamp = rawData.toInt() * 1000;
 }
 
-unsigned int getCurrentTimestamp() {
-	return initTimestamp + (millis() / 1000 - initMillis);
-}
 
 /* ----- COMMUNICATION ----- */
 
 void receivedFromBluetooth() {
-
-	String buffer = "";
+	String buffer;
 
 	if (bluetooth.dataAvailable())
 		buffer = bluetooth.receive();
@@ -289,29 +396,37 @@ void receivedFromBluetooth() {
 		onTravelTime(buffer.substring(12));
 	else if (buffer.startsWith(HEADER_TIMESTAMP))
 		onTimestamp(buffer.substring(10));
-
 }
+
 
 /* ----- MAIN ----- */
 
 void loop() {
+	//Packet* tmp = split("data1;1", ';');
+
+	//Serial.print(tmp->get(0));
+	//Serial.print(" ");
+	//Serial.println(tmp->get(1));
+	//attendre(100000);
+
+	//delete tmp;
+
 	// Button actions
-	if (button1.estTenuAppuye())
-		bluetooth.acceptConnection(BT_NAME);
-	if (button2.estTenuAppuye())
+	/*if (buttonConnect.estTenuAppuye())
+		connect();
+	if (buttonCourse.estTenuAppuye())
+		displayCourse();
+	if (buttonMail.estTenuAppuye())
 		sendEmail();
 
 	receivedFromBluetooth();
-
-	/** do whatever we need to do */
-
-	updateDisplay();
+	displayData();
 
 	if (luminosity.etat() <= LUMINOSITY_THRESHOLD) {
-		displayTime();
+		screenBacklight();
 
 		if (false) {
 			alarm();
 		}
-	}
+	}*/
 }
