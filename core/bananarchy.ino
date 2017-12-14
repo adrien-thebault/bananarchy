@@ -126,6 +126,8 @@ public:
 			this->value = value;
 			next = new Packet();
 		}
+		else
+            next->add(index, value);
 	}
 };
 
@@ -136,25 +138,17 @@ Packet* split(const String line, const char delim) {
 	Packet* packet = new Packet();
 	unsigned int size = line.length();
 	for (unsigned int base = 0, i = 0, cpt = 0, anti = 0, j = 0; i < size; ++i) {
-		Serial.print("line: ");
-		Serial.println(line[i]);
-
-		if (line[i] == '\"' && ((anti & 1) == 1))
+		if (line[i] == '\"' && ((anti & 1) == 0))
 			++cpt;
 		else if (line[i] == '\\')
 			++anti;
-		else if (line[i] == delim || ((cpt & 1) == 0)) {
+        else if(line[i] == '\"' && ((anti&1) == 1)){
+            anti = 0;
+        }
+		else if ((line[i] == delim && ((cpt & 1) == 0)) || i == size - 1) {
 			anti = 0;
-			unsigned int tmp = !!cpt;
-			Serial.print(tmp);
-			Serial.print(" ");
-			Serial.print(base);
-			Serial.print(" ");
-			Serial.print(i);
-			Serial.print(" ");
-			Serial.print(tmp);
-			Serial.println(line.substring(tmp + base, i - tmp));
-			packet->add(j++, line.substring(tmp + base, i - tmp));
+			int tmp = !!cpt;
+			packet->add(j++, line.substring(tmp + base, i - 1 - tmp));
 			cpt = 0;
 			base = i + 1;
 		}
