@@ -66,10 +66,7 @@
 // Others
 #define TEMPO 190
 #define LUMINOSITY_THRESHOLD 10
-
-// Months
-static const String months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-static const byte monthDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+#define LINE_LENGTH 13
 
 
 /* ----- VARIABLES ----- */
@@ -90,14 +87,17 @@ Screen screen;
 Temperature meteo;
 Bluetooth bluetooth;
 
-unsigned int initTimestamp;
-unsigned int initMillis;
-unsigned int startTime;
+unsigned long initTimestamp;
+unsigned long initMillis;
+
+unsigned long startTime;
 String courseName;
 String courseLocation;
+
 String weatherType;
 int weatherTemperature;
-int travelTime;
+
+unsigned int travelTime;
 
 
 /* ----- CLASSES ----- */
@@ -131,6 +131,79 @@ public:
 	}
 };
 
+class Date {
+private:
+	static const String months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	static const byte monthDays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+	short year;
+	byte month;
+	byte day;
+	byte hour;
+	byte minute;
+
+public:
+	Date(unsigned long timestamp) {
+		timestamp /= 60; // Now it is minutes
+		minute = modulo(timestamp, 60);
+		timestamp /= 60; // now it is hours
+		byte hour = modulo(timestamp, 60);
+		timestamp /= 24; // now it is days
+
+		// Compute the year and the day
+		year = 0;  
+		short days = 0; // TODO: A TESTER
+		while ((unsigned)(days += (isLeapYear(year) ? 366 : 365)) <= timestamp)
+			year++;
+		days -= isLeapYear(year) ? 366 : 365;
+		timestamp -= days; // now it is days in this year, starting at 0
+
+		// Compute the month and the day
+		month = 0;
+		for (month = 0; month < 12; ++month) {
+			byte monthLength = 0;
+
+			if (month == 1) // February
+				if (isLeapYear(year))
+					monthLength = 29;
+				else
+					monthLength = 28;
+			else
+				monthLength = monthDays[month];
+			
+			if (timestamp >= monthLength)
+				timestamp -= monthLength;
+			else
+				break;
+		}
+		day = timestamp + 1;
+	}
+
+	short getYear() {
+		return year;
+	}
+
+	byte getMonth() {
+		return month;
+	}
+
+	String getMonthName() {
+		return months[month];
+	}
+
+	byte getDay() {
+		return day;
+	}
+
+	byte getHour() {
+		return hour;
+	}
+
+	byte getMinute() {
+		return minute;
+	}
+}
+
 
 /* ----- USEFUL FUNCTIONS ----- */
 
@@ -142,12 +215,11 @@ Packet* split(const String line, const char delim) {
 			++cpt;
 		else if (line[i] == '\\')
 			++anti;
-        else if(line[i] == '\"' && ((anti&1) == 1)){
+        else if(line[i] == '\"' && ((anti&1) == 1))
             anti = 0;
-        }
 		else if ((line[i] == delim && ((cpt & 1) == 0)) || i == size - 1) {
 			anti = 0;
-			int tmp = !!cpt;
+			unsigned int tmp = !!cpt;
 			packet->add(j++, line.substring(tmp + base, i - 1 - tmp));
 			cpt = 0;
 			base = i + 1;
@@ -200,41 +272,7 @@ void screenBacklight() {
 		screen.switchOff();
 }
 
-void displayData() {
-	unsigned long timestamp = getCurrentTimestamp();
-	timestamp /= 60; // Now it is minutes
-	byte minute = modulo(timestamp, 60);
-	timestamp /= 60; // now it is hours
-	byte hour = modulo(timestamp, 60);
-	timestamp /= 24; // now it is days
-
-	// Compute the year and the day
-	short year = 0;  
-	byte day = 0;
-	while ((unsigned)(day += (isLeapYear(year) ? 366 : 365)) <= timestamp)
-		year++;
-	day -= isLeapYear(year) ? 366 : 365;
-	timestamp -= day; // now it is days in this year, starting at 0
-
-	// Compute the month  and the day
-	byte month = 0;
-	byte monthLength = 0;
-	for (month = 0; month < 12; ++month) {
-		if (month == 1) // February
-			if (isLeapYear(year))
-				monthLength = 29;
-			else
-				monthLength = 28;
-		else
-			monthLength = monthDays[month];
-		
-		if (timestamp >= monthLength)
-			timestamp -= monthLength;
-		else
-			break;
-	}
-	day = timestamp + 1;
-
+void displayTime(Date time) {
 	String abbreviation;
 	if (day == 1)
 		abbreviation = "st";
@@ -244,36 +282,59 @@ void displayData() {
 		abbreviation = "rd";
 	else
 		abbreviation = "th";
-	screen.printMsg(day + abbreviation + " " + months[month] + " " + year, 0);
+
+	String spaces = "";
+	if (day < 10)
+		spaces += " ";
+	screen.printMsg(spaces + date.getDay() + abbreviation + " " + date.getMonthDay() + " " + year, 0);
 
 	String time = "";
 	// Add a zero before the hours
-	if (hour < 10)
+	if (date.getHour() < 10)
 		time += "0";
-	time += hour + ":";
+	time += date.getHour() + ":";
 	// Add a zero before the minutes
-	if (minute < 10)
+	if (date.getMinute() < 10)
 		time += "0";
-	time += minute;
+	time += date.getMinute();
 	screen.printMsg("    " + time, 2);
+}
 
-	// LA PUTAIN DE SA MERE LA PUTE
-	String humidity = meteo.humidite() + "%";
+void displayData() {
+	displayTime(Date(getCurrentTimestamp()));
+
+	String humidity = meteo.humidite() + "hum";
 	String spaces = "";
-	for (byte i = humidity.length() + weatherType.length(); i < 13; ++i)
+	for (byte i = humidity.length() + weatherType.length(); i < LINE_LENGTH; ++i)
 		spaces += " ";
 	screen.printMsg(humidity + spaces + weatherType, 4);
 
 	String temperature1 = meteo.temperature() + "°C";
 	String temperature2 = weatherTemperature + "°C";
 	spaces = "";
-	for (byte i = temperature1.length() + temperature2.length(); i < 13; ++i)
+	for (byte i = temperature1.length() + temperature2.length(); i < LINE_LENGTH; ++i)
 		spaces += " ";
 	screen.printMsg(temperature1 + spaces + temperature2, 5);
 }
 
+// A REVOIR AVEC ADRIEN
 void displayCourse() {
+	displayTime(Date(startTime));
 
+	String spaces = "";
+	String course = courseName.substring(LINE_LENGTH);
+	byte size = (LINE_LENGTH - course.length()) / 2;
+	for (byte i = 0; i < size; ++i)
+		spaces += " ";
+	screen.printMsg(spaces + course, 4);
+
+	spaces = "";
+	byte size = (LINE_LENGTH - courseLocation.length()) / 2;
+	for (byte i = 0; i < size; ++i)
+		spaces += " ";
+	screen.printMsg(spaces + courseLocation, 4);
+
+	// RAJOUTER COMPTER A REBOUR ?
 }
 
 void alarm() {
@@ -410,6 +471,8 @@ void loop() {
 		connect();
 	if (buttonCourse.estTenuAppuye())
 		displayCourse();
+	else
+		displayData();
 	if (buttonMail.estTenuAppuye())
 		sendEmail();
 
