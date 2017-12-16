@@ -9,17 +9,23 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
-import android.graphics.Typeface;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,6 +39,7 @@ import insa_project.bananarchy.bdd.RessourcesDAO;
 import insa_project.bananarchy.model.Group;
 import insa_project.bananarchy.model.Level;
 import insa_project.bananarchy.utils.APIConnexion;
+import insa_project.bananarchy.utils.UTF8StringRequest;
 
 
 /**
@@ -117,12 +124,52 @@ public class SyncActivity extends AppCompatActivity {
         ProgressBar pgBar = (ProgressBar)findViewById(R.id.progress_bar);
         pgBar.getIndeterminateDrawable().setColorFilter(Color.WHITE, PorterDuff.Mode.MULTIPLY);
 
-        //Typeface type = Typeface.createFromAsset(getAssets(),"font/raleway-thin.ttf");
-        //TextView titleApp = (TextView) findViewById(R.id.nom_app);
-        //titleApp.setTypeface(type);
+        StringRequest stringRequest = new UTF8StringRequest(Request.Method.GET, APIConnexion.URL_GRP,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        // Display the first 500 characters of the response string.
+                        try {
+                            HashMap<String,ArrayList<Group>>listGr = APIConnexion.getGroups(response);
+                            long id;
+                            GroupDAO gdao = new GroupDAO(getApplicationContext());
+                            RessourcesDAO rdao = new RessourcesDAO(getApplicationContext());
+                            LevelDAO ndao = new LevelDAO(getApplicationContext());
+                            if(listGr != null && !listGr.isEmpty())
+                            {
+                                for(Map.Entry<String,ArrayList<Group>> entry : listGr.entrySet())
+                                {
 
-        AsyncTaskSyncDB syncDB = new AsyncTaskSyncDB();
-        syncDB.execute();
+                                    long levelID = ndao.ajouter(new Level(entry.getKey()));
+                                    ArrayList<Group> listGrByLevel = entry.getValue();
+                                    for(Group g : listGrByLevel)
+                                    {
+                                        id = gdao.ajouter(g,levelID);
+                                        for (String ressource : g.getRessource()) {
+                                            rdao.ajouter(ressource, id);
+                                        }
+                                    }
+                                }
+                                Toast.makeText(SyncActivity.this,"Les cours ont été mis à jour ;)",Toast.LENGTH_LONG);
+
+
+                            }
+
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        Intent intent = new Intent(SyncActivity.this, SettingsActivity.class);
+                        startActivity(intent);
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.d("That didn't work!","ERROR");
+            }
+        });
+        RequestQueue queue = Volley.newRequestQueue(this);
+        queue.add(stringRequest);
+
     }
 
     @Override
@@ -192,7 +239,7 @@ public class SyncActivity extends AppCompatActivity {
             HashMap<String,ArrayList<Group>> listGr;
             long id;
             try {
-                listGr = api.getGroups();
+                listGr = api.getGroups("");
                 GroupDAO gdao = new GroupDAO(getApplicationContext());
                 RessourcesDAO rdao = new RessourcesDAO(getApplicationContext());
                 LevelDAO ndao = new LevelDAO(getApplicationContext());

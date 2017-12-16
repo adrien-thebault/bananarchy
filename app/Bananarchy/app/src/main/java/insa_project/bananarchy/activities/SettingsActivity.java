@@ -2,6 +2,9 @@ package insa_project.bananarchy.activities;
 
 
 import android.annotation.TargetApi;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -12,6 +15,8 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.ParcelUuid;
 import android.preference.ListPreference;
 import android.preference.MultiSelectListPreference;
 import android.preference.Preference;
@@ -26,18 +31,38 @@ import android.preference.RingtonePreference;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
+import android.widget.Toast;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonArrayRequest;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 import insa_project.bananarchy.R;
 import insa_project.bananarchy.bdd.GroupDAO;
@@ -45,6 +70,8 @@ import insa_project.bananarchy.bdd.LevelDAO;
 import insa_project.bananarchy.bdd.RessourcesDAO;
 import insa_project.bananarchy.model.Group;
 import insa_project.bananarchy.model.Level;
+import insa_project.bananarchy.utils.APIConnexion;
+import insa_project.bananarchy.utils.UTF8StringRequest;
 
 /**
  * A {@link PreferenceActivity} that presents a set of application settings. On
@@ -61,6 +88,16 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
 
     private static SettingsActivity context;
     private static GeneralPreferenceFragment contextFrag;
+    private OutputStream bluetoothOutputStream;
+    private InputStream bluetoothInStream;
+    private final static int REQUEST_ENABLE_BT = 1;
+    private static final UUID BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    private BluetoothSocket btSocket = null;
+    Handler bluetoothIn;
+    private static ConnectBluetoothThread mConnectedThread;
+
+    final int handlerState = 0;
+
 
     /**
      * A preference value change listener that updates the preference's summary
@@ -119,12 +156,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             }else if(preference instanceof SwitchPreference && preference.getKey().equals("bus_preference")){
                 Boolean val = (Boolean)value;
                 if(val) {
-                    preference.setSummary("Je prends le bus");
                     switchPreferenceCar.setChecked(false);
                     switchPreferenceWalker.setChecked(false);
-                }
-                else {
-                    preference.setSummary("Je ne prends pas le bus");
                 }
                 if(!val && !switchPreferenceCar.isChecked() && !switchPreferenceWalker.isChecked()){
                     switchPreferenceWalker.setChecked(true);
@@ -133,12 +166,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             }else if(preference instanceof SwitchPreference && preference.getKey().equals("car_preference")){
                 Boolean val = (Boolean)value;
                 if(val) {
-                    preference.setSummary("Je prends la voiture");
                     switchPreferenceBus.setChecked(false);
                     switchPreferenceWalker.setChecked(false);
-                }
-                else {
-                    preference.setSummary("Je ne prends pas la voiture");
                 }
                 if(!val && !switchPreferenceBus.isChecked() && !switchPreferenceWalker.isChecked()){
                     switchPreferenceWalker.setChecked(true);
@@ -150,12 +179,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                     return false;
                 }
                 if(val) {
-                    preference.setSummary("Je suis piéton");
                     switchPreferenceCar.setChecked(false);
                     switchPreferenceBus.setChecked(false);
-                }
-                else {
-                    preference.setSummary("Je ne suis pas piéton");
                 }
                 editor.putBoolean(preference.getKey(),val);
             }else {
@@ -169,6 +194,62 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             return true;
         }
     };
+
+    private BluetoothSocket createBluetoothSocket(BluetoothDevice device) throws IOException {
+
+        return  device.createRfcommSocketToServiceRecord(BTMODULEUUID);
+        //creates secure outgoing connecetion with BT device using UUID
+    }
+
+    private void init() throws IOException {
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter == null) {
+            // Device doesn't support Bluetooth
+            Toast.makeText(context, "Bluetooth non supporté sur cet appareil", Toast.LENGTH_LONG).show();
+        } else {
+            if (!mBluetoothAdapter.isEnabled()) {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            }
+            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+            if (pairedDevices.size() > 0) {
+                // There are paired devices. Get the name and address of each paired device.
+                BluetoothDevice myDevice = null;
+                for (BluetoothDevice device : pairedDevices) {
+                    String deviceName = device.getName();
+                    String deviceHardwareAddress = device.getAddress(); // MAC address
+                    if (device.getName().equals("Xperia Z2"))
+                        myDevice = device;
+                    Log.d("NAME", deviceName);
+                    Log.d("ADDRESS", deviceHardwareAddress);
+                }
+                if (myDevice != null) {
+                    try {
+                        btSocket = createBluetoothSocket(myDevice);
+                    } catch (IOException e) {
+                        Toast.makeText(getBaseContext(), "Socket creation failed", Toast.LENGTH_LONG).show();
+                    }
+                    // Establish the Bluetooth socket connection.
+                    try {
+                        btSocket.connect();
+                        Toast.makeText(getBaseContext(), "Connection done", Toast.LENGTH_LONG).show();
+                    } catch (IOException e) {
+                        try {
+                            btSocket.close();
+                        } catch (IOException e2) {
+                            //insert code to deal with this
+                        }
+                    }
+                    mConnectedThread = new ConnectBluetoothThread(btSocket);
+                    mConnectedThread.start();
+
+                    //I send a character when resuming.beginning transmission to check device is connected
+                    //If it is not an exception will be thrown in the write method and finish() will be called
+                    mConnectedThread.write("x");
+                }
+            }
+        }
+    }
 
     /**
      * Helper method to determine if the device has an extra-large screen. For
@@ -217,6 +298,16 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         super.onCreate(savedInstanceState);
         setupActionBar();
         context = this;
+        bluetoothIn = new Handler() {
+            public void handleMessage(android.os.Message msg) {
+                Toast.makeText(getApplicationContext(),msg.toString(),Toast.LENGTH_LONG).show();
+            }
+        };
+        try {
+            init();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -227,6 +318,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         if (actionBar != null) {
             // Show the Up button in the action bar.
             actionBar.setDisplayHomeAsUpEnabled(true);
+
         }
     }
 
@@ -357,6 +449,15 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             super.onCreate(savedInstanceState);
             addPreferencesFromResource(R.xml.pref_notification);
             setHasOptionsMenu(true);
+
+            Preference sendButton = findPreference("sendButton");
+            sendButton.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(Preference preference) {
+                    SettingsActivity.mConnectedThread.write("TEST");
+                    return false;
+                }
+            });
 
             // Bind the summaries of EditText/List/Dialog/Ringtone preferences
             // to their values. When their values change, their summaries are
@@ -507,6 +608,32 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                                 outputStream.writeObject(savePref);
                                 outputStream.flush();
                                 outputStream.close();
+                                String listAgenda = "";
+                                for(String s : (HashSet<String>)newValue){
+                                    listAgenda+=s+",";
+                                }
+                                Log.d("MES RESSOURCES",listAgenda);
+                                /*
+                                JSONObject j = new JSONObject();
+                                j.accumulate("agenda",)
+
+                                JsonObjectRequest stringRequest = new JsonObjectRequest(Request.Method.PUT, APIConnexion.URL_SETTINGS_AGENDA,j,
+                                        new Response.Listener<JSONObject>() {
+                                            @Override
+                                            public void onResponse(JSONObject response) {
+                                                // Display the first 500 characters of the response string.
+
+                                                Toast.makeText(getActivity(),"Modifications enregistrées",Toast.LENGTH_LONG);
+                                            }
+                                        }, new Response.ErrorListener() {
+                                    @Override
+                                    public void onErrorResponse(VolleyError error) {
+                                        Log.d("That didn't work!","ERROR");
+                                    }
+                                });
+                                RequestQueue queue = Volley.newRequestQueue(this);
+                                queue.add(stringRequest);
+                                */
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
@@ -522,5 +649,56 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             }
         }
 
+    }
+
+    private class ConnectBluetoothThread extends Thread {
+
+        private final InputStream mmInStream;
+        private final OutputStream mmOutStream;
+
+        //creation of the connect thread
+        public ConnectBluetoothThread(BluetoothSocket socket) {
+            InputStream tmpIn = null;
+            OutputStream tmpOut = null;
+
+            try {
+                //Create I/O streams for connection
+                tmpIn = socket.getInputStream();
+                tmpOut = socket.getOutputStream();
+            } catch (IOException e) { }
+
+            mmInStream = tmpIn;
+            mmOutStream = tmpOut;
+        }
+
+        public void run() {
+            byte[] buffer = new byte[256];
+            int bytes;
+
+            // Keep looping to listen for received messages
+            while (true) {
+                try {
+                    bytes = mmInStream.read(buffer);            //read bytes from input buffer
+                    String readMessage = new String(buffer, 0, bytes);
+                    // Send the obtained bytes to the UI Activity via handler
+                    bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
+                } catch (IOException e) {
+                    break;
+                }
+            }
+        }
+        //write method
+        public void write(String input) {
+            byte[] msgBuffer = input.getBytes();           //converts entered String into bytes
+            try {
+                mmOutStream.write(msgBuffer);                //write bytes over BT connection via outstream
+                Log.d("WRITEBLUE",input);
+            } catch (IOException e) {
+                //if you cannot write, close the application
+                Toast.makeText(getBaseContext(), "Connection Failure", Toast.LENGTH_LONG).show();
+                finish();
+
+            }
+        }
     }
 }

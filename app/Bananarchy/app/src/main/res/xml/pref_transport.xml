@@ -3,20 +3,17 @@
     <SwitchPreference
         android:defaultValue="false"
         android:key="bus_preference"
-        android:title="Bus"
-        android:summary="Je ne prends pas le bus" />
+        android:title="Bus" />
 
     <SwitchPreference
         android:defaultValue="false"
         android:key="car_preference"
-        android:title="Voiture"
-        android:summary="Je ne prends pas la voiture" />
+        android:title="Voiture" />
 
     <SwitchPreference
         android:defaultValue="true"
         android:key="walker_preference"
-        android:title="Piéton"
-        android:summary="Je suis piéton" />
+        android:title="Piéton" />
 
 
 </PreferenceScreen>
