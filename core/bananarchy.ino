@@ -14,15 +14,15 @@
 /* ----- CONSTANTS ----- */
 
 // Credentials
-#define BT_NAME "ThingzBT"
+#define BT_NAME "Thingz-INSA"
 #define BT_PASSWORD "1234"
 
 // Data header
+#define HEADER_TIMESTAMP "TIMESTAMP"
 #define HEADER_AGENDA "AGENDA"
 #define HEADER_WEATHER "WEATHER"
 #define HEADER_TRAVEL_TIME "TRAVEL_TIME"
-#define HEADER_TIMESTAMP "TIMESTAMP"
-#define HEADER_EMAIL "PAZAT"
+#define HEADER_EMAIL " PAZAT"
 
 // Notes
 #define SILENCE 0
@@ -64,16 +64,15 @@
 #define SIXTY_FOURTY .0625
 
 // Others
+#define SCREEN_LINE_LENGTH 13
 #define TEMPO 190
 #define LUMINOSITY_THRESHOLD 10
-#define LINE_LENGTH 13
-#define NUMBER_MONTHS 12
-
+#define MARGIN 300
 
 /* ----- VARIABLES ----- */
 
-Bouton buttonConnect;
 Bouton buttonCourse;
+Bouton buttonConnect;
 Bouton buttonMail;
 Led blue;
 Led white;
@@ -91,15 +90,15 @@ Bluetooth bluetooth;
 unsigned long initTimestamp;
 unsigned long initMillis;
 
-unsigned long startTime;
+unsigned long courseTimestamp;
 String courseName;
 String courseLocation;
 
 String weatherType;
 int weatherTemperature;
 
-unsigned int travelTime;
-
+byte travelTime;
+byte preparationTime;
 
 /* ----- CLASSES ----- */
 
@@ -117,11 +116,11 @@ public:
 			delete next;
 	}
 
-	String get(const unsigned int index) const {
+	String get(unsigned int index) const {
 		return this->index == index ? value : (next != nullptr ? next->get(index) : "");
 	}
 
-	void add(const unsigned int index, const String value) {
+	void add(unsigned int index, String value) {
 		if (next == nullptr) {
 			this->index = index;
 			this->value = value;
@@ -132,7 +131,7 @@ public:
 	}
 };
 
-Packet* split(const String line, const char delim) {
+Packet* split(String line, char delim) {
 	Packet* packet = new Packet();
 	unsigned int size = line.length();
 	for (unsigned int base = 0, i = 0, cpt = 0, anti = 0, j = 0; i < size; ++i) {
@@ -140,12 +139,12 @@ Packet* split(const String line, const char delim) {
 			++cpt;
 		else if (line[i] == '\\')
 			++anti;
-		else if(line[i] == '\"' && ((anti&1) == 1))
+		else if(line[i] == '\"' && ((anti & 1) == 1))
 			anti = 0;
 		else if ((line[i] == delim && ((cpt & 1) == 0)) || i == size - 1) {
 			anti = 0;
 			unsigned int tmp = !!cpt;
-			packet->add(j++, line.substring(tmp + base, i - 1 - tmp));
+			packet->add(j++, line.substring(tmp + base, i - tmp));
 			cpt = 0;
 			base = i + 1;
 		}
@@ -156,8 +155,8 @@ Packet* split(const String line, const char delim) {
 
 class Date {
 private:
-	static const String MONTHS[NUMBER_MONTHS];
-	static const byte MONTH_DAYS[NUMBER_MONTHS];
+	static const String MONTHS[12];
+	static const byte MONTH_DAYS[12];
 
 	short year;
 	byte month;
@@ -165,25 +164,23 @@ private:
 	byte hour;
 	byte minute;
 
-	unsigned long modulo(unsigned long x, unsigned int y) {
+	unsigned long modulo(unsigned long x, unsigned long y) const {
 		return x - (x / y) * y;
 	}
 
-	bool isLeapYear(short year) {
-		return ((1970 + year) > 0) && !(modulo((1970 + year), 4)) && ((modulo((1970 + year), 100)) || !(modulo((1970 + year), 400)));
-	}
-
 public:
-	Date(unsigned long timestamp) {
+	Date(unsigned long timestampReceived) {
+		unsigned long timestamp = timestampReceived;
+
 		timestamp /= 60; // Now it is minutes
 		minute = modulo(timestamp, 60);
 		timestamp /= 60; // now it is hours
-		byte hour = modulo(timestamp, 60);
+		byte hour = modulo(timestamp, 24);
 		timestamp /= 24; // now it is days
 
 		// Compute the year and the day
-		year = 0;  
-		short days = 0; // TODO: A TESTER
+		year = 1970; // Timestamp begin at 1970
+		unsigned int days = 0;
 		while ((unsigned)(days += (isLeapYear(year) ? 366 : 365)) <= timestamp)
 			year++;
 		days -= isLeapYear(year) ? 366 : 365;
@@ -207,30 +204,35 @@ public:
 			else
 				break;
 		}
+		++month;
 		day = timestamp + 1;
 	}
 
-	short getYear() {
+	bool isLeapYear(short year) const {
+		return (year > 0) && !(modulo(year, 4)) && ((modulo(year, 100)) || !(modulo(year, 400)));
+	}
+
+	short getYear() const {
 		return year;
 	}
 
-	byte getMonth() {
+	byte getMonth() const {
 		return month;
 	}
 
-	String getMonthName() {
-		return MONTHS[month];
+	String getMonthName() const {
+		return MONTHS[month - 1];
 	}
 
-	byte getDay() {
+	byte getDay() const {
 		return day;
 	}
 
-	byte getHour() {
+	byte getHour() const {
 		return hour;
 	}
 
-	byte getMinute() {
+	byte getMinute() const {
 		return minute;
 	}
 };
@@ -252,21 +254,21 @@ void screenBacklight() {
 		screen.switchOff();
 }
 
-void displayTime(Date time) {
+void displayTime(const Date& date) {
 	String abbreviation;
-	if (day == 1)
+	if (date.getDay() == 1)
 		abbreviation = "st";
-	else if (day == 2)
+	else if (date.getDay() == 2)
 		abbreviation = "nd";
-	else if (day == 3)
+	else if (date.getDay() == 3)
 		abbreviation = "rd";
 	else
 		abbreviation = "th";
 
 	String spaces = "";
-	if (day < 10)
+	if (date.getDay() < 10)
 		spaces += " ";
-	screen.printMsg(spaces + date.getDay() + abbreviation + " " + date.getMonthDay() + " " + year, 0);
+	screen.printMsg(spaces + date.getDay() + abbreviation + " " + date.getMonthName() + " " + date.getYear(), 0);
 
 	String time = "";
 	// Add a zero before the hours
@@ -281,52 +283,49 @@ void displayTime(Date time) {
 }
 
 unsigned long getCurrentTimestamp() {
-	return initTimestamp + (millis() / 1000 - initMillis);
+	return initTimestamp + (millis() - initMillis) / 1000;
 }
 
 void displayData() {
 	screen.clear();
 	displayTime(Date(getCurrentTimestamp()));
 
-	String humidity = meteo.humidite() + "hum";
+	String humidity = meteo.humidite() + " h";
 	String spaces = "";
-	for (byte i = humidity.length() + weatherType.length(); i < LINE_LENGTH; ++i)
+	for (byte i = humidity.length() + weatherType.length(); i < SCREEN_LINE_LENGTH; ++i)
 		spaces += " ";
 	screen.printMsg(humidity + spaces + weatherType, 4);
 
-	String temperature1 = meteo.temperature() + "°C";
-	String temperature2 = weatherTemperature + "°C";
+	String temperature1 = meteo.temperature() + " C";
+	String temperature2 = weatherTemperature + " C";
 	spaces = "";
-	for (byte i = temperature1.length() + temperature2.length(); i < LINE_LENGTH; ++i)
+	for (byte i = temperature1.length() + temperature2.length(); i < SCREEN_LINE_LENGTH; ++i)
 		spaces += " ";
 	screen.printMsg(temperature1 + spaces + temperature2, 5);
 }
 
-// A REVOIR AVEC ADRIEN
 void displayCourse() {
 	screen.clear();
-	displayTime(Date(startTime));
+	displayTime(Date(courseTimestamp));
 
 	String spaces = "";
-	String course = courseName.substring(LINE_LENGTH);
-	byte size = (LINE_LENGTH - course.length()) / 2;
+	String course = courseName.substring(SCREEN_LINE_LENGTH);
+	byte size = (SCREEN_LINE_LENGTH - course.length()) / 2;
 	for (byte i = 0; i < size; ++i)
 		spaces += " ";
 	screen.printMsg(spaces + course, 4);
 
 	spaces = "";
-	byte size = (LINE_LENGTH - courseLocation.length()) / 2;
+	size = (SCREEN_LINE_LENGTH - courseLocation.length()) / 2;
 	for (byte i = 0; i < size; ++i)
 		spaces += " ";
 	screen.printMsg(spaces + courseLocation, 4);
-
-	// RAJOUTER COMPTER A REBOUR ?
 }
 
 void displayWakeUp() {
 	screen.clear();
-	screen.printMsg(" REVEIL TOI", 2);
-	screen.printMsg("  CONNARD !", 3);
+	screen.printMsg("REVEILLE TOI", 2);
+	screen.printMsg("  C****** !", 3);
 }
 
 void displayConnect() {
@@ -335,7 +334,7 @@ void displayConnect() {
 	screen.printMsg("  TABLET...", 3);
 }
 
-void note(const unsigned int note, const float duration) {
+void note(unsigned int note, float duration) {
 	if (note == SILENCE) {
 		buzzer.arreteDeSonner();
 		attendre(duration * 60000 / TEMPO);
@@ -385,6 +384,7 @@ void alarm() {
 
 	bool stop = false;
 	displayWakeUp();
+	screen.switchOn();
 	while (!stop)
 		for (byte i = 0; i < sizeof(notes) / sizeof(notes[0]); ++i) {
 			note(notes[i], durations[i]);
@@ -394,6 +394,7 @@ void alarm() {
 				break;
 			}
 		}
+	screen.switchOff();
 	displayData();
 }
 
@@ -404,63 +405,38 @@ void makeCoffee() {
 void connect() {
 	displayConnect();
 	bluetooth.acceptConnection(BT_NAME);
-	Serial.println("CONNECT");
 	displayData();
 }
 
 
 /* ----- CALLBACKS ----- */
 
-void onAgenda(String rawData) {
-	red.switchOn();
-	Serial.print("AGENDA : ");
-	Serial.println(rawData);
-	attendre(1000);
-	red.switchOff();
-	/*Packet* data = split(rawData, ';');
+void onTimestamp(String rawData) {
+	initMillis = millis();
+	initTimestamp = rawData.toInt();
+}
 
-	startTime = data->get(0).toInt();
+void onAgenda(String rawData) {
+	Packet* data = split(rawData, ';');
+
+	courseTimestamp = atol(data->get(0));
 	courseName = data->get(1);
 	courseLocation = data->get(2);
 
-	delete data;*/
+	delete data;
 }
 
 void onWeather(String rawData) {
-	white.switchOn();
-	Serial.print("WEATHER : ");
-	Serial.println(rawData);
-	attendre(1000);
-	white.switchOff();
-	/*Packet* data = split(rawData, ';');
+	Packet* data = split(rawData, ';');
 
 	weatherType = data->get(0);
 	weatherTemperature = data->get(1).toInt();
 
-	delete data;*/
+	delete data;
 }
 
 void onTravelTime(String rawData) {
-	blue.switchOn();
-	Serial.print("TRAVEL : ");
-	Serial.println(rawData);
-	attendre(1000);
-	blue.switchOff();
-	//travelTime = rawData.toInt();
-}
-
-void onTimestamp(String rawData) {
-	red.switchOn();
-	white.switchOn();
-	blue.switchOn();
-	Serial.print("TRAVEL : ");
-	Serial.println(rawData);
-	attendre(1000);
-	red.switchOff();
-	white.switchOff();
-	blue.switchOff();
-	/*initMillis = millis() / 1000;
-	initTimestamp = rawData.toInt() * 1000;*/
+	travelTime = rawData.toInt() * 60;
 }
 
 
@@ -472,14 +448,14 @@ void receivedFromBluetooth() {
 	if (bluetooth.dataAvailable())
 		buffer = bluetooth.receive();
 
-	if (buffer.startsWith(HEADER_AGENDA))
+	if (buffer.startsWith(HEADER_TIMESTAMP))
+		onTimestamp(buffer.substring(10));
+	else if (buffer.startsWith(HEADER_AGENDA))
 		onAgenda(buffer.substring(7));
 	else if (buffer.startsWith(HEADER_WEATHER))
 		onWeather(buffer.substring(8));
 	else if (buffer.startsWith(HEADER_TRAVEL_TIME))
 		onTravelTime(buffer.substring(12));
-	else if (buffer.startsWith(HEADER_TIMESTAMP))
-		onTimestamp(buffer.substring(10));
 }
 
 
@@ -489,6 +465,7 @@ void setup() {
 	Serial.begin(9600);
 	screen.setContrast(70, true);
 	bluetooth.setPassword(BT_PASSWORD);
+	connect();
 }
 
 
@@ -496,33 +473,41 @@ void setup() {
 
 void loop() {
 	red.switchOn();
-	//Packet* tmp = split("data1;1", ';');
 
-	//Serial.print(tmp->get(0));
-	//Serial.print(" ");
-	//Serial.println(tmp->get(1));
-	//attendre(100000);
+	//Packet* data = split("Rain;9", ';');
 
-	//delete tmp;
+	//delete data;
 
 	// Button actions
-	if (buttonConnect.estTenuAppuye())
-		connect();
-	/*if (buttonCourse.estTenuAppuye())
+	if (buttonCourse.estTenuAppuye())
 		displayCourse();
 	else
-		displayData();*/
+		displayData();
+	if (buttonConnect.estTenuAppuye())
+		connect();
 	if (buttonMail.estTenuAppuye())
 		sendEmail();
 
 	receivedFromBluetooth();
-	//displayData();
 
-	/*if (luminosity.etat() <= LUMINOSITY_THRESHOLD) {
+	// Bananarchy core
+	// GERER LES LEDS, LE CAFE, LE RAPPEL DE SONNERIE, LE RESET POUR LE JOUR SUIVANT, LA SONNERIE
+	if (luminosity.etat() <= LUMINOSITY_THRESHOLD) {
 		screenBacklight();
 
-		if (false) {
+		if (getCurrentTimestamp() >= (courseTimestamp - travelTime - preparationTime - MARGIN)) {
 			alarm();
+			blue.switchOn();
 		}
-	}*/
+	} else {
+		makeCoffee();
+	}
+
+	if () {
+		blue.switchOff();
+		white.switchOn();
+	} else if () {
+		white.switchOff();
+		red.switchOn();
+	}
 }
