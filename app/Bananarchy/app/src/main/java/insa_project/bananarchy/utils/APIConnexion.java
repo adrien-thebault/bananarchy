@@ -30,8 +30,10 @@ public class APIConnexion {
 
     URL url;
     HttpsURLConnection connection;
-    static final String URL_CALENDAR = "https://edt.adrien-thebault.fr/api/calendar.json";
-    static final String URL_GRP = "https://koikege.pierre-boulch.fr/apiGr-v2.json";
+    public static final String URL_CALENDAR = "https://edt.adrien-thebault.fr/api/calendar.json";
+    public static final String URL_GRP = "https://koikege.pierre-boulch.fr/apiGr-v2.json";
+    public static final String URL_SETTINGS = "http://bananarchy.adrien-thebault.fr/settings/";
+    public static final String URL_SETTINGS_AGENDA = URL_SETTINGS+"agenda/";
 
 
 
@@ -69,13 +71,9 @@ public class APIConnexion {
         return sb.toString();
     }
 
-    public HashMap<String,ArrayList<Group>> getGroups() throws IOException
+    public static HashMap<String,ArrayList<Group>> getGroups(String response) throws IOException
     {
         HashMap<String,ArrayList<Group>> ret = new HashMap<>();
-        InputStream inputStream = this.initConnection(URL_GRP);
-        if(inputStream != null)
-        {
-            String response = convertStreamToString(inputStream);
             try
             {
                 JSONArray jsonArr = new JSONArray(response);
@@ -114,8 +112,6 @@ public class APIConnexion {
                 e.printStackTrace();
             }
             return ret;
-        }
-        return null;
     }
 
 
