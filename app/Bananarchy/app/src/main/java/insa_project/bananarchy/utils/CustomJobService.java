@@ -5,31 +5,28 @@ import android.app.job.JobService;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
-import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.android.volley.DefaultRetryPolicy;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
-import insa_project.bananarchy.activities.SettingsActivity;
-import insa_project.bananarchy.activities.SyncActivity;
-import insa_project.bananarchy.bdd.GroupDAO;
-import insa_project.bananarchy.bdd.LevelDAO;
-import insa_project.bananarchy.bdd.RessourcesDAO;
-import insa_project.bananarchy.model.Group;
-import insa_project.bananarchy.model.Level;
-
-import static android.support.v4.app.ActivityCompat.startActivityForResult;
 
 
 /**
@@ -49,6 +46,11 @@ public class CustomJobService extends JobService {
     private static ConnectBluetoothThread mConnectedThread = null;
     final int handlerState = 0;
 
+    protected static String agenda = null;
+    protected static String weather = null;
+    protected static String travelTime = null;
+    protected static boolean timestampSent = false;
+
     @Override
     public boolean onStartJob(final JobParameters params) {
         this.params = params;
@@ -62,9 +64,12 @@ public class CustomJobService extends JobService {
 
         error = new Handler(){
             public void handleMessage(android.os.Message msg){
-                Log.d("MESSAGE","Test");
+                Log.d("MESSAGE",msg.toString());
+                Toast.makeText(getApplicationContext(),"BANANARCHY - "+msg.toString(),Toast.LENGTH_LONG).show();
             }
         };
+
+
         AsyncTaskJob asyncTaskJob = new AsyncTaskJob();
         asyncTaskJob.execute();
 
@@ -81,15 +86,69 @@ public class CustomJobService extends JobService {
 
     private class AsyncTaskJob extends AsyncTask<String,Void,Boolean> {
 
+
+
+        protected void getAndSendData(){
+            JsonObjectRequest stringRequest = new JsonObjectRequest(Request.Method.GET, APIConnexion.URL_ALL_DATA,null,
+                    new Response.Listener<JSONObject>() {
+                        @Override
+                        public void onResponse(JSONObject response) {
+                            // Display the first 500 characters of the response string.
+                            Log.d("BANANARCHY",response.toString());
+                            try {
+                                String bluetoothRequest = "";
+                                JSONObject agendaJSON = response.getJSONObject("agenda");
+                                JSONObject weatherJSON = response.getJSONObject("weather");
+                                int travelTimeJSON = response.getInt("travel_time");
+
+                                String agendaRequest = "AGENDA " + agendaJSON.getInt("beginning") + ";" + agendaJSON.getString("summary") + ";" + agendaJSON.getString("location");
+                                String weatherRequest = "WEATHER "+weatherJSON.getString("weather")+";"+weatherJSON.getInt("temp");
+                                String travelTimeRequest = "TRAVEL_TIME "+travelTimeJSON;
+                                if(!timestampSent){
+                                    bluetoothRequest = "TIMESTAMP "+response.getInt("timestamp");
+                                    timestampSent = true;
+                                }
+                                else if(!agendaRequest.equals(CustomJobService.this.agenda)) {
+                                    bluetoothRequest = agendaRequest;
+                                    CustomJobService.this.agenda = agendaRequest;
+                                } else if (!weatherRequest.equals(CustomJobService.this.weather)){
+                                    bluetoothRequest = weatherRequest;
+                                    CustomJobService.this.weather = weatherRequest;
+                                } else if(!travelTimeRequest.equals(CustomJobService.this.travelTime)){
+                                    bluetoothRequest = travelTimeRequest;
+                                    CustomJobService.this.travelTime = travelTimeRequest;
+                                }
+
+                                if(!bluetoothRequest.equals(""))
+                                    mConnectedThread.write(bluetoothRequest);
+                                    //Log.d("BANANARCHY",bluetoothRequest);
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+
+                        }
+                    }, new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError error) {
+                    Log.d("That didn't work!","ERROR");
+                }
+            });
+            RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+            queue.add(stringRequest);
+        }
+
         @Override
         protected Boolean doInBackground(String ... params) {
             if(mConnectedThread == null) {
                 try {
-                    init();
-                    Log.d("BANA","INIT DONE");
+                    if(init()){
+                        getAndSendData();
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+            }else {
+                getAndSendData();
             }
             return true;
         }
@@ -126,7 +185,7 @@ public class CustomJobService extends JobService {
         }
 
         public void run() {
-            byte[] buffer = new byte[256];
+            byte[] buffer = new byte[512];
             int bytes;
 
             // Keep looping to listen for received messages
@@ -135,8 +194,27 @@ public class CustomJobService extends JobService {
                     bytes = mmInStream.read(buffer);            //read bytes from input buffer
                     String readMessage = new String(buffer, 0, bytes);
                     // Send the obtained bytes to the UI Activity via handler
-                    bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
-                    Log.d("MESSAGE","RECU");
+                    //bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
+                    Log.d("MESSAGE RECU",readMessage);
+                    readMessage = readMessage.replaceAll("\\s+","");
+                    if(readMessage.equals("P")){
+                        Log.d("BANANARCHY","DONE");
+                        UTF8StringRequest stringRequest = new UTF8StringRequest(Request.Method.POST, APIConnexion.URL_SEND_MAIL,
+                                new Response.Listener<String>() {
+                                    @Override
+                                    public void onResponse(String response) {
+                                        Log.d("BANANARCHY","MAIL ENVOYÉ");
+                                    }
+                                }, new Response.ErrorListener() {
+                            @Override
+                            public void onErrorResponse(VolleyError error) {
+                                Log.d("That didn't work!","ERROR");
+                            }
+                        });
+                        stringRequest.setRetryPolicy(new DefaultRetryPolicy(0, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+                        RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
+                        queue.add(stringRequest);
+                    }
                 } catch (IOException e) {
                     break;
                 }
@@ -150,7 +228,8 @@ public class CustomJobService extends JobService {
                 Log.d("WRITEBLUE",input);
             } catch (IOException e) {
                 //if you cannot write, close the application
-                Toast.makeText(getBaseContext(), "Connection Failure", Toast.LENGTH_LONG).show();
+                e.printStackTrace();
+                Log.d("BANANARCHY","BLUETOOTH WRITE ERROR");
             }
         }
     }
@@ -160,7 +239,7 @@ public class CustomJobService extends JobService {
         return  device.createRfcommSocketToServiceRecord(BTMODULEUUID);
         //creates secure outgoing connecetion with BT device using UUID
     }
-    private void init() throws IOException {
+    private boolean init() throws IOException {
         BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter != null) {
             if (!mBluetoothAdapter.isEnabled()) {
@@ -174,7 +253,10 @@ public class CustomJobService extends JobService {
                 for (BluetoothDevice device : pairedDevices) {
                     String deviceName = device.getName();
                     String deviceHardwareAddress = device.getAddress(); // MAC address
-                    if (device.getAddress().equals("20:16:11:07:31:71"))
+                    /*if (device.getAddress().equals("20:16:11:07:31:71"))
+                        myDevice = device;
+                        */
+                    if(device.getName().equals("Xperia Z2"))
                         myDevice = device;
                     Log.d("NAME", deviceName);
                     Log.d("ADDRESS", deviceHardwareAddress);
@@ -191,6 +273,7 @@ public class CustomJobService extends JobService {
                         btSocket.connect();
                         //Toast.makeText(getBaseContext(), "Connection done", Toast.LENGTH_LONG).show();
                         Log.d("CONNECTION DONE","connection");
+
                     } catch (IOException e) {
                         try {
                             btSocket.close();
@@ -203,15 +286,17 @@ public class CustomJobService extends JobService {
 
                     //I send a character when resuming.beginning transmission to check device is connected
                     //If it is not an exception will be thrown in the write method and finish() will be called
-                    mConnectedThread.write("AGENDA 150");
+                    return true;
                 }
                 else {
                     //Toast.makeText(getBaseContext(), "Thingz introuvable", Toast.LENGTH_LONG).show();
                     Log.d("ERROR","thingz introuvable");
                     error.obtainMessage(handlerState, 25, -1, "test").sendToTarget();
+                    return false;
                 }
             }
         }
+        return false;
     }
 
 }
