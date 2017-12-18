@@ -19,10 +19,11 @@
 
 // Data header
 #define HEADER_TIMESTAMP "TIMESTAMP"
+#define HEADER_PREPARATION_TIME "PREPARATION_TIME"
 #define HEADER_AGENDA "AGENDA"
 #define HEADER_WEATHER "WEATHER"
 #define HEADER_TRAVEL_TIME "TRAVEL_TIME"
-#define HEADER_EMAIL " PAZAT"
+#define HEADER_EMAIL "P"
 
 // Notes
 #define SILENCE 0
@@ -144,6 +145,8 @@ Packet* split(String line, char delim) {
 		else if ((line[i] == delim && ((cpt & 1) == 0)) || i == size - 1) {
 			anti = 0;
 			unsigned int tmp = !!cpt;
+			if (i == size - 1)
+				++i;
 			packet->add(j++, line.substring(tmp + base, i - tmp));
 			cpt = 0;
 			base = i + 1;
@@ -255,6 +258,7 @@ void screenBacklight() {
 }
 
 void displayTime(const Date& date) {
+	screen.clear();
 	String abbreviation;
 	if (date.getDay() == 1)
 		abbreviation = "st";
@@ -416,10 +420,14 @@ void onTimestamp(String rawData) {
 	initTimestamp = rawData.toInt();
 }
 
+void onPreparationTime(String rawData) {
+	preparationTime = rawData.toInt() * 60;
+}
+
 void onAgenda(String rawData) {
 	Packet* data = split(rawData, ';');
 
-	courseTimestamp = atol(data->get(0));
+	courseTimestamp = atol(data->get(0).c_str());
 	courseName = data->get(1);
 	courseLocation = data->get(2);
 
@@ -450,6 +458,8 @@ void receivedFromBluetooth() {
 
 	if (buffer.startsWith(HEADER_TIMESTAMP))
 		onTimestamp(buffer.substring(10));
+	else if (buffer.startsWith(HEADER_PREPARATION_TIME))
+		onPreparationTime(buffer.substring(13));
 	else if (buffer.startsWith(HEADER_AGENDA))
 		onAgenda(buffer.substring(7));
 	else if (buffer.startsWith(HEADER_WEATHER))
@@ -472,12 +482,6 @@ void setup() {
 /* ----- MAIN ----- */
 
 void loop() {
-	red.switchOn();
-
-	//Packet* data = split("Rain;9", ';');
-
-	//delete data;
-
 	// Button actions
 	if (buttonCourse.estTenuAppuye())
 		displayCourse();
