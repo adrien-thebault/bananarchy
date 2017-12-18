@@ -38,6 +38,7 @@ public class APIConnexion {
     public static final String URL_SETTINGS_TRANSPORTATION = URL_SETTINGS+"transportation/";
     public static final String URL_SETTINGS_LOCATION = URL_SETTINGS+"location/";
     public static final String URL_SEND_MAIL = "http://bananarchy.adrien-thebault.fr/data/send_mail";
+    public static final String URL_SETTINGS_PREPARATION_TIME = URL_SETTINGS+"/preparation_time";
 
 
 

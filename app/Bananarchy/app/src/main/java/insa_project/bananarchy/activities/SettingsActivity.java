@@ -22,6 +22,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ParcelUuid;
+import android.preference.EditTextPreference;
 import android.preference.ListPreference;
 import android.preference.MultiSelectListPreference;
 import android.preference.Preference;
@@ -487,6 +488,41 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                 @Override
                 public boolean onPreferenceClick(Preference preference) {
                     return false;
+                }
+            });
+
+
+            final EditTextPreference editTextPreference = (EditTextPreference) findPreference("alarm_delay_preferences");
+            editTextPreference.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                @Override
+                public boolean onPreferenceChange(Preference preference, Object o) {
+                    EditTextPreference editTextPreference1 = (EditTextPreference)preference;
+                    Log.d("BANANARCHY","UPDATE DELAY : "+editTextPreference1.getEditText().getText());
+                    try {
+                        JSONObject j = new JSONObject();
+                        j.accumulate("name","preparation_time");
+                        j.accumulate("value",editTextPreference1.getEditText().getText());
+
+                        JsonObjectRequest stringRequest = new JsonObjectRequest(Request.Method.PUT, APIConnexion.URL_SETTINGS_PREPARATION_TIME,j,
+                                new Response.Listener<JSONObject>() {
+                                    @Override
+                                    public void onResponse(JSONObject response) {
+                                        // Display the first 500 characters of the response string.
+                                        Toast.makeText(getActivity(),"Modifications enregistrées",Toast.LENGTH_LONG);
+                                        Log.d("RESULT","ON EST TOUT BON");
+                                    }
+                                }, new Response.ErrorListener() {
+                            @Override
+                            public void onErrorResponse(VolleyError error) {
+                                Log.d("That didn't work!","ERROR");
+                            }
+                        });
+                        RequestQueue queue = Volley.newRequestQueue(getActivity());
+                        queue.add(stringRequest);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    return true;
                 }
             });
 

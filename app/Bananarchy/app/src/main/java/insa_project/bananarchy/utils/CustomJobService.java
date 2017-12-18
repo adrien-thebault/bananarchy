@@ -49,6 +49,7 @@ public class CustomJobService extends JobService {
     protected static String agenda = null;
     protected static String weather = null;
     protected static String travelTime = null;
+    protected static String preparationTime = null;
     protected static boolean timestampSent = false;
 
     @Override
@@ -99,11 +100,14 @@ public class CustomJobService extends JobService {
                                 String bluetoothRequest = "";
                                 JSONObject agendaJSON = response.getJSONObject("agenda");
                                 JSONObject weatherJSON = response.getJSONObject("weather");
+                                int preparationTimeJSON = response.getInt("preparation_time");
                                 int travelTimeJSON = response.getInt("travel_time");
 
                                 String agendaRequest = "AGENDA " + agendaJSON.getInt("beginning") + ";" + agendaJSON.getString("summary") + ";" + agendaJSON.getString("location");
                                 String weatherRequest = "WEATHER "+weatherJSON.getString("weather")+";"+weatherJSON.getInt("temp");
                                 String travelTimeRequest = "TRAVEL_TIME "+travelTimeJSON;
+                                String preparationTimeRequest = "PREPARATION_TIME "+preparationTimeJSON;
+
                                 if(!timestampSent){
                                     bluetoothRequest = "TIMESTAMP "+response.getInt("timestamp");
                                     timestampSent = true;
@@ -117,6 +121,9 @@ public class CustomJobService extends JobService {
                                 } else if(!travelTimeRequest.equals(CustomJobService.this.travelTime)){
                                     bluetoothRequest = travelTimeRequest;
                                     CustomJobService.this.travelTime = travelTimeRequest;
+                                } else if(!preparationTimeRequest.equals(CustomJobService.this.preparationTime)){
+                                    bluetoothRequest = preparationTimeRequest;
+                                    CustomJobService.this.preparationTime = preparationTimeRequest;
                                 }
 
                                 if(!bluetoothRequest.equals(""))
