@@ -64,11 +64,17 @@
 #define THIRTY_SECOND .125
 #define SIXTY_FOURTY .0625
 
+// Snooze
+#define REPEAT 300
+#define MARGIN 300
+#define WARNING 600
+#define EMERGENCY 300
+
 // Others
 #define SCREEN_LINE_LENGTH 13
 #define TEMPO 190
 #define LUMINOSITY_THRESHOLD 10
-#define MARGIN 300
+
 
 /* ----- VARIABLES ----- */
 
@@ -87,6 +93,10 @@ Son buzzer;
 Screen screen;
 Temperature meteo;
 Bluetooth bluetooth;
+
+unsigned int repeat;
+bool snooze;
+bool coffee;
 
 unsigned long initTimestamp;
 unsigned long initMillis;
@@ -272,7 +282,8 @@ void displayTime(const Date& date) {
 	String spaces = "";
 	if (date.getDay() < 10)
 		spaces += " ";
-	screen.printMsg(spaces + date.getDay() + abbreviation + " " + date.getMonthName() + " " + date.getYear(), 0);
+	//screen.printMsg(spaces + date.getDay() + abbreviation + " " + date.getMonthName() + " " + date.getYear(), 0);
+	Serial.println(spaces + date.getDay() + abbreviation + " " + date.getMonthName() + " " + date.getYear());
 
 	String time = "";
 	// Add a zero before the hours
@@ -283,7 +294,8 @@ void displayTime(const Date& date) {
 	if (date.getMinute() < 10)
 		time += "0";
 	time += date.getMinute();
-	screen.printMsg("    " + time, 2);
+	//screen.printMsg("    " + time, 2);
+	Serial.println("    " + time);
 }
 
 unsigned long getCurrentTimestamp() {
@@ -298,14 +310,16 @@ void displayData() {
 	String spaces = "";
 	for (byte i = humidity.length() + weatherType.length(); i < SCREEN_LINE_LENGTH; ++i)
 		spaces += " ";
-	screen.printMsg(humidity + spaces + weatherType, 4);
+	//screen.printMsg(humidity + spaces + weatherType, 4);
+	Serial.println(humidity + spaces + weatherType);
 
 	String temperature1 = meteo.temperature() + " C";
 	String temperature2 = weatherTemperature + " C";
 	spaces = "";
 	for (byte i = temperature1.length() + temperature2.length(); i < SCREEN_LINE_LENGTH; ++i)
 		spaces += " ";
-	screen.printMsg(temperature1 + spaces + temperature2, 5);
+	//screen.printMsg(temperature1 + spaces + temperature2, 5);
+	Serial.println(temperature1 + spaces + temperature2);
 }
 
 void displayCourse() {
@@ -317,25 +331,31 @@ void displayCourse() {
 	byte size = (SCREEN_LINE_LENGTH - course.length()) / 2;
 	for (byte i = 0; i < size; ++i)
 		spaces += " ";
-	screen.printMsg(spaces + course, 4);
+	//screen.printMsg(spaces + course, 4);
+	Serial.println(spaces + course);
 
 	spaces = "";
 	size = (SCREEN_LINE_LENGTH - courseLocation.length()) / 2;
 	for (byte i = 0; i < size; ++i)
 		spaces += " ";
-	screen.printMsg(spaces + courseLocation, 4);
+	//screen.printMsg(spaces + courseLocation, 4);
+	Serial.println(spaces + courseLocation);
 }
 
 void displayWakeUp() {
 	screen.clear();
-	screen.printMsg("REVEILLE TOI", 2);
-	screen.printMsg("  C****** !", 3);
+	//screen.printMsg("REVEILLE TOI", 2);
+	Serial.println("REVEILLE TOI");
+	//screen.printMsg("  PIERRE !", 3);
+	Serial.println("  PIERRE !");
 }
 
 void displayConnect() {
 	screen.clear();
-	screen.printMsg(" CONNECT TO", 2);
-	screen.printMsg("  TABLET...", 3);
+	//screen.printMsg(" CONNECT TO", 2);
+	Serial.println(" CONNECT TO");
+	//screen.printMsg("  TABLET...", 3);
+	Serial.println("  TABLET...");
 }
 
 void note(unsigned int note, float duration) {
@@ -403,6 +423,7 @@ void alarm() {
 }
 
 void makeCoffee() {
+	coffee = true;
 	relai.allumer(1, 1);
 }
 
@@ -425,6 +446,9 @@ void onPreparationTime(String rawData) {
 }
 
 void onAgenda(String rawData) {
+	repeat = 0;
+	snooze = false;
+	coffee = false;
 	Packet* data = split(rawData, ';');
 
 	courseTimestamp = atol(data->get(0).c_str());
@@ -476,6 +500,9 @@ void setup() {
 	screen.setContrast(70, true);
 	bluetooth.setPassword(BT_PASSWORD);
 	connect();
+	repeat = 0;
+	snooze = false;
+	coffee = false;
 }
 
 
@@ -495,23 +522,29 @@ void loop() {
 	receivedFromBluetooth();
 
 	// Bananarchy core
-	// GERER LES LEDS, LE CAFE, LE RAPPEL DE SONNERIE, LE RESET POUR LE JOUR SUIVANT, LA SONNERIE
 	if (luminosity.etat() <= LUMINOSITY_THRESHOLD) {
 		screenBacklight();
 
-		if (getCurrentTimestamp() >= (courseTimestamp - travelTime - preparationTime - MARGIN)) {
+		if (!snooze && getCurrentTimestamp() >= (courseTimestamp - travelTime - preparationTime - MARGIN + repeat)) {
 			alarm();
 			blue.switchOn();
+			repeat += REPEAT;
 		}
 	} else {
-		makeCoffee();
-	}
+		// You are supposed to be awake
+		snooze = true;
+		if (snooze && !coffee) {
+			makeCoffee();
+		}
 
-	if () {
-		blue.switchOff();
-		white.switchOn();
-	} else if () {
-		white.switchOff();
-		red.switchOn();
+		if (getCurrentTimestamp() >= (courseTimestamp - travelTime - WARNING) && getCurrentTimestamp() < (courseTimestamp - travelTime - EMERGENCY)) {
+			blue.switchOff();
+			white.switchOn();
+		} else if (getCurrentTimestamp() >= (courseTimestamp - travelTime - EMERGENCY) && getCurrentTimestamp() < courseTimestamp) {
+			white.switchOff();
+			red.switchOn();
+		} else {
+			red.switchOff();
+		}
 	}
 }
