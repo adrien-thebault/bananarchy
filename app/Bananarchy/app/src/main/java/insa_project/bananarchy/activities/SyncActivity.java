@@ -5,11 +5,15 @@ package insa_project.bananarchy.activities;
  */
 
 import android.annotation.SuppressLint;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.ActionBar;
@@ -31,6 +35,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import insa_project.bananarchy.R;
 import insa_project.bananarchy.bdd.GroupDAO;
@@ -39,6 +44,7 @@ import insa_project.bananarchy.bdd.RessourcesDAO;
 import insa_project.bananarchy.model.Group;
 import insa_project.bananarchy.model.Level;
 import insa_project.bananarchy.utils.APIConnexion;
+import insa_project.bananarchy.utils.CustomJobService;
 import insa_project.bananarchy.utils.UTF8StringRequest;
 
 
@@ -169,6 +175,7 @@ public class SyncActivity extends AppCompatActivity {
         });
         RequestQueue queue = Volley.newRequestQueue(this);
         queue.add(stringRequest);
+        scheduleJob();
 
     }
 
@@ -228,6 +235,44 @@ public class SyncActivity extends AppCompatActivity {
     public Context getContext()
     {
         return this;
+    }
+
+    private void scheduleJob() {
+        final JobScheduler jobScheduler = (JobScheduler) getSystemService(
+                Context.JOB_SCHEDULER_SERVICE);
+
+        final ComponentName name = new ComponentName(this, CustomJobService.class);
+
+        final int result = jobScheduler.schedule(getJobInfo(123, 1, name));
+
+        if (result == JobScheduler.RESULT_SUCCESS) {
+            Log.d("BANANARCHY", "Scheduled job successfully!");
+        }
+
+    }
+
+    private JobInfo getJobInfo(final int id, final long minutes,
+                               final ComponentName name) {
+        final JobInfo jobInfo;
+        final long interval = TimeUnit.MINUTES.toMillis(minutes);
+        final boolean isPersistent = true;
+        final int networkType = JobInfo.NETWORK_TYPE_ANY;
+
+        if ( Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            jobInfo = new JobInfo.Builder(id, name)
+                    .setMinimumLatency(interval)
+                    .setRequiredNetworkType(networkType)
+                    .setPersisted(isPersistent)
+                    .build();
+        } else {
+            jobInfo = new JobInfo.Builder(id, name)
+                    .setPeriodic(interval)
+                    .setRequiredNetworkType(networkType)
+                    .setPersisted(isPersistent)
+                    .build();
+        }
+
+        return jobInfo;
     }
 
 
