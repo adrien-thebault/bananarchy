@@ -33,7 +33,12 @@ public class APIConnexion {
     public static final String URL_CALENDAR = "https://edt.adrien-thebault.fr/api/calendar.json";
     public static final String URL_GRP = "https://koikege.pierre-boulch.fr/apiGr-v2.json";
     public static final String URL_SETTINGS = "http://bananarchy.adrien-thebault.fr/settings/";
+    public static final String URL_ALL_DATA = "http://bananarchy.adrien-thebault.fr/data/all";
     public static final String URL_SETTINGS_AGENDA = URL_SETTINGS+"agenda/";
+    public static final String URL_SETTINGS_TRANSPORTATION = URL_SETTINGS+"transportation/";
+    public static final String URL_SETTINGS_LOCATION = URL_SETTINGS+"location/";
+    public static final String URL_SEND_MAIL = "http://bananarchy.adrien-thebault.fr/data/send_mail";
+    public static final String URL_SETTINGS_PREPARATION_TIME = URL_SETTINGS+"/preparation_time";
 
 
 
