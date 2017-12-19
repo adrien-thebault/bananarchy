@@ -80,6 +80,8 @@ import insa_project.bananarchy.bdd.RessourcesDAO;
 import insa_project.bananarchy.model.Group;
 import insa_project.bananarchy.model.Level;
 import insa_project.bananarchy.utils.APIConnexion;
+import insa_project.bananarchy.utils.ConnectBluetoothThread;
+import insa_project.bananarchy.utils.CustomJobService;
 import insa_project.bananarchy.utils.UTF8StringRequest;
 
 /**
@@ -487,6 +489,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             sendButton.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
                 @Override
                 public boolean onPreferenceClick(Preference preference) {
+                    AsyncTaskSendBluetooth taskSendBluetooth = new AsyncTaskSendBluetooth();
+                    taskSendBluetooth.execute();
                     return false;
                 }
             });
@@ -541,6 +545,44 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                 return true;
             }
             return super.onOptionsItemSelected(item);
+        }
+
+        private class AsyncTaskSendBluetooth extends AsyncTask<String,Void,Boolean> {
+
+            @Override
+            protected Boolean doInBackground(String... strings) {
+
+                JsonObjectRequest jsonRequest = new JsonObjectRequest(Request.Method.GET, APIConnexion.URL_DATA_AGENDA, null,
+                        new Response.Listener<JSONObject>() {
+                            @Override
+                            public void onResponse(JSONObject agendaJSON) {
+                                if(ConnectBluetoothThread.isInit()){
+                                    try {
+                                        String agendaRequest = "AGENDA " + agendaJSON.getInt("beginning") + ";" + agendaJSON.getString("summary") + ";" + agendaJSON.getString("location");
+                                        ConnectBluetoothThread.write(agendaRequest);
+                                    } catch (JSONException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+                            }
+                        }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+
+                    }
+                });
+                Log.d("BANANARCHY","WRITE AGENDA");
+                RequestQueue queue1 = Volley.newRequestQueue(context);
+                queue1.add(jsonRequest);
+                return true;
+            }
+
+            @Override
+            protected void onPostExecute(Boolean result) {
+                if(result){
+                    Toast.makeText(getContext(),"SYNCHRONISATION EFFECTUÉE",Toast.LENGTH_LONG);
+                }
+            }
         }
     }
 

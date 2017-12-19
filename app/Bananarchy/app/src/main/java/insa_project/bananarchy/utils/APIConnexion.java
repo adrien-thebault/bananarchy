@@ -34,6 +34,7 @@ public class APIConnexion {
     public static final String URL_GRP = "https://koikege.pierre-boulch.fr/apiGr-v2.json";
     public static final String URL_SETTINGS = "http://bananarchy.adrien-thebault.fr/settings/";
     public static final String URL_ALL_DATA = "http://bananarchy.adrien-thebault.fr/data/all";
+    public static final String URL_DATA_AGENDA = "http://bananarchy.adrien-thebault.fr/data/agenda";
     public static final String URL_SETTINGS_AGENDA = URL_SETTINGS+"agenda/";
     public static final String URL_SETTINGS_TRANSPORTATION = URL_SETTINGS+"transportation/";
     public static final String URL_SETTINGS_LOCATION = URL_SETTINGS+"location/";
