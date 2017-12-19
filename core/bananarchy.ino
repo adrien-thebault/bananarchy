@@ -310,9 +310,7 @@ unsigned long getCurrentTimestamp() {
 
 void displayData() {
 	screen.clear();
-	// TEST
-	initMillis = 0;
-	displayTime(Date(1513677842));//getCurrentTimestamp()));
+	displayTime(Date(getCurrentTimestamp()));
 
 	String humidity = meteo.humidite() + "h";
 	Serial.print(meteo.humidite());
