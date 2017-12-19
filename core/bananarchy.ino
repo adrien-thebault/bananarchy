@@ -64,11 +64,11 @@
 #define THIRTY_SECOND .125
 #define SIXTY_FOURTY .0625
 
-// Snooze
-#define REPEAT 300
-#define MARGIN 300
-#define WARNING 600
-#define EMERGENCY 300
+// Snooze parameters in seconds
+#define REPEAT 30//300
+#define MARGIN 60//300
+#define WARNING 300//600
+#define EMERGENCY 150//300
 
 // Others
 #define SCREEN_LINE_LENGTH 13
@@ -182,13 +182,12 @@ private:
 	}
 
 public:
-	Date(unsigned long timestampReceived) {
-		unsigned long timestamp = timestampReceived;
-
+	Date(unsigned long timestamp) {
 		timestamp /= 60; // Now it is minutes
 		minute = modulo(timestamp, 60);
 		timestamp /= 60; // now it is hours
-		byte hour = modulo(timestamp, 24);
+		hour = modulo(timestamp, 24);
+
 		timestamp /= 24; // now it is days
 
 		// Compute the year and the day
@@ -218,7 +217,7 @@ public:
 				break;
 		}
 		++month;
-		day = timestamp + 1;
+		day = timestamp + 1;	
 	}
 
 	bool isLeapYear(short year) const {
@@ -269,33 +268,40 @@ void screenBacklight() {
 
 void displayTime(const Date& date) {
 	screen.clear();
-	String abbreviation;
-	if (date.getDay() == 1)
-		abbreviation = "st";
-	else if (date.getDay() == 2)
-		abbreviation = "nd";
-	else if (date.getDay() == 3)
-		abbreviation = "rd";
-	else
-		abbreviation = "th";
 
-	String spaces = "";
+	String fullDate = "";
 	if (date.getDay() < 10)
-		spaces += " ";
-	//screen.printMsg(spaces + date.getDay() + abbreviation + " " + date.getMonthName() + " " + date.getYear(), 0);
-	Serial.println(spaces + date.getDay() + abbreviation + " " + date.getMonthName() + " " + date.getYear());
+		fullDate += " ";
+	fullDate += date.getDay();
 
-	String time = "";
+	if (date.getDay() == 1)
+		fullDate += "st";
+	else if (date.getDay() == 2)
+		fullDate += "nd";
+	else if (date.getDay() == 3)
+		fullDate += "rd";
+	else
+		fullDate += "th";
+	fullDate += " " + date.getMonthName() + " " + date.getYear();
+	//screen.printMsg(fullDate, 0);
+	Serial.println(fullDate);
+
+	//String time = "";
 	// Add a zero before the hours
+	Serial.print("    ");
 	if (date.getHour() < 10)
-		time += "0";
-	time += date.getHour() + ":";
+		Serial.print("0");
+	//	time += "0";
+	Serial.print(date.getHour());
+	Serial.print(":");
+	//time += date.getHour() + "\:";
 	// Add a zero before the minutes
 	if (date.getMinute() < 10)
-		time += "0";
-	time += date.getMinute();
-	//screen.printMsg("    " + time, 2);
-	Serial.println("    " + time);
+		Serial.print("0");
+	//	time += "0";
+	Serial.println(date.getMinute());
+	//time = "    " + time + date.getMinute();
+	//screen.printMsg(time, 2);
 }
 
 unsigned long getCurrentTimestamp() {
@@ -304,22 +310,32 @@ unsigned long getCurrentTimestamp() {
 
 void displayData() {
 	screen.clear();
-	displayTime(Date(getCurrentTimestamp()));
+	// TEST
+	initMillis = 0;
+	displayTime(Date(1513677842));//getCurrentTimestamp()));
 
-	String humidity = meteo.humidite() + " h";
+	String humidity = meteo.humidite() + "h";
+	Serial.print(meteo.humidite());
+	Serial.print("h");
 	String spaces = "";
 	for (byte i = humidity.length() + weatherType.length(); i < SCREEN_LINE_LENGTH; ++i)
-		spaces += " ";
+		//spaces += " ";
+		Serial.print(" ");
+	
+	Serial.println("clouds");
 	//screen.printMsg(humidity + spaces + weatherType, 4);
-	Serial.println(humidity + spaces + weatherType);
 
-	String temperature1 = meteo.temperature() + " C";
-	String temperature2 = weatherTemperature + " C";
+	String temperature1 = meteo.temperature() + "C";
+	Serial.print(meteo.temperature());
+	Serial.print("C");
+	String temperature2 = weatherTemperature + "C";
 	spaces = "";
 	for (byte i = temperature1.length() + temperature2.length(); i < SCREEN_LINE_LENGTH; ++i)
-		spaces += " ";
+		//spaces += " ";
+		Serial.print(" ");
+	Serial.print(weatherTemperature);
+	Serial.println("C");
 	//screen.printMsg(temperature1 + spaces + temperature2, 5);
-	Serial.println(temperature1 + spaces + temperature2);
 }
 
 void displayCourse() {
@@ -330,16 +346,18 @@ void displayCourse() {
 	String course = courseName.substring(SCREEN_LINE_LENGTH);
 	byte size = (SCREEN_LINE_LENGTH - course.length()) / 2;
 	for (byte i = 0; i < size; ++i)
-		spaces += " ";
+		Serial.print(" ");
+		//spaces += " ";
 	//screen.printMsg(spaces + course, 4);
-	Serial.println(spaces + course);
+	Serial.println(course);
 
 	spaces = "";
 	size = (SCREEN_LINE_LENGTH - courseLocation.length()) / 2;
 	for (byte i = 0; i < size; ++i)
-		spaces += " ";
+		Serial.print(" ");
+		//spaces += " ";
 	//screen.printMsg(spaces + courseLocation, 4);
-	Serial.println(spaces + courseLocation);
+	Serial.println(courseLocation);
 }
 
 void displayWakeUp() {
@@ -497,6 +515,7 @@ void receivedFromBluetooth() {
 
 void setup() {
 	Serial.begin(9600);
+	while (!Serial);
 	screen.setContrast(70, true);
 	bluetooth.setPassword(BT_PASSWORD);
 	connect();
