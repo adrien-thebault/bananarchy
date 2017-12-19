@@ -57,22 +57,46 @@ class DataController < ApplicationController
     # Agenda
     def get_agenda
 
-      res = JSON.parse(RestClient.get("https://edt.adrien-thebault.fr/api/calendar.json?begin=#{Time.now.getutc.to_i.to_s}&end=#{(Time.now.getutc.to_i + 7*86400).to_s}&resources=#{@settings[:agenda]}"), :symbolize_names => true)[:calendar]
-      is_first_of_today_ended = false
-      today = Time.now.beginning_of_day.getutc.to_i
-      tomorrow = today + 86400
+      # If true, the API will generate a fake agenda entry
+      demo = true
 
-      res.each do |x|
-          if x[:beginning] >= today && x[:beginning] < tomorrow && x[:ended]
-            is_first_of_today_ended = true
-            break
-          end
+      if demo
+
+        travel_time = get_travel_time.to_i*60
+
+        {               # current_date + margin + 2 min for the demo + preparation_time + travel_time
+          :beginning => Time.now.getutc.to_i + 300 + 120 + @settings[:preparation_time].to_i*60 + travel_time,
+          :end => Time.now.getutc.to_i + 300 + 120 + @settings[:preparation_time].to_i*60 + travel_time + 3600,
+          :duration => 3600,
+          :summary => "Démo IOT",
+          :location => "ICI",
+          :groups => ["S9-INFO"],
+          :details => "Démonstration IOT",
+          :teacher => "Moi",
+          :current => false,
+          :ended => false
+        }
+
+      else
+
+        res = JSON.parse(RestClient.get("https://edt.adrien-thebault.fr/api/calendar.json?begin=#{Time.now.getutc.to_i.to_s}&end=#{(Time.now.getutc.to_i + 7*86400).to_s}&resources=#{@settings[:agenda]}"), :symbolize_names => true)[:calendar]
+        is_first_of_today_ended = false
+        today = Time.now.beginning_of_day.getutc.to_i
+        tomorrow = today + 86400
+
+        res.each do |x|
+            if x[:beginning] >= today && x[:beginning] < tomorrow && x[:ended]
+              is_first_of_today_ended = true
+              break
+            end
+        end
+
+        (res.select do |x|
+          puts x[:ended]
+          !x[:ended] && ((is_first_of_today_ended && x[:beginning] >= tomorrow) || !is_first_of_today_ended)
+        end).first
+
       end
-
-      (res.select do |x|
-        puts x[:ended]
-        !x[:ended] && ((is_first_of_today_ended && x[:beginning] >= tomorrow) || !is_first_of_today_ended)
-      end).first
 
     end
 
