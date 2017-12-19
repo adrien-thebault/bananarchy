@@ -108,8 +108,8 @@ String courseLocation;
 String weatherType;
 int weatherTemperature;
 
-byte travelTime;
-byte preparationTime;
+unsigned int travelTime;
+unsigned int preparationTime;
 
 /* ----- CLASSES ----- */
 
@@ -499,7 +499,7 @@ void receivedFromBluetooth() {
 	if (buffer.startsWith(HEADER_TIMESTAMP))
 		onTimestamp(buffer.substring(10));
 	else if (buffer.startsWith(HEADER_PREPARATION_TIME))
-		onPreparationTime(buffer.substring(13));
+		onPreparationTime(buffer.substring(17));
 	else if (buffer.startsWith(HEADER_AGENDA))
 		onAgenda(buffer.substring(7));
 	else if (buffer.startsWith(HEADER_WEATHER))
@@ -539,6 +539,7 @@ void loop() {
 	receivedFromBluetooth();
 
 	// Bananarchy core
+	
 	if (luminosity.etat() <= LUMINOSITY_THRESHOLD) {
 		screenBacklight();
 
@@ -546,13 +547,14 @@ void loop() {
 			alarm();
 			blue.switchOn();
 			repeat += REPEAT;
+	        relai.allumer(1, 1);
 		}
 	} else {
 		// You are supposed to be awake
 		snooze = true;
-		if (snooze && !coffee) {
-			makeCoffee();
-		}
+		//if (snooze && !coffee) {
+	    relai.allumer(1, 1);
+		//}
 
 		if (getCurrentTimestamp() >= (courseTimestamp - travelTime - WARNING) && getCurrentTimestamp() < (courseTimestamp - travelTime - EMERGENCY)) {
 			blue.switchOff();
