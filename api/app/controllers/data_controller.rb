@@ -11,7 +11,7 @@ class DataController < ApplicationController
       :agenda => get_agenda,
       :weather => get_weather,
       :travel_time => get_travel_time,
-      :timestamp => Time.now.getutc.to_i
+      :timestamp => Time.now.getutc.to_i + 3600
     }
 
   end
@@ -33,7 +33,7 @@ class DataController < ApplicationController
 
   # GET /data/timestamp
   def timestamp
-    render :json => Time.now.getutc.to_i
+    render :json => Time.now.getutc.to_i + 3600
   end
 
   # POST /data/send_mail
@@ -64,9 +64,9 @@ class DataController < ApplicationController
 
         travel_time = get_travel_time.to_i*60
 
-        {               # current_date + margin + 2 min for the demo + preparation_time + travel_time
-          :beginning => Time.now.getutc.to_i + 300 + 120 + @settings[:preparation_time].to_i*60 + travel_time,
-          :end => Time.now.getutc.to_i + 300 + 120 + @settings[:preparation_time].to_i*60 + travel_time + 3600,
+        {               # current_date + heure d'hiver + margin + 2 min for the demo + preparation_time + travel_time
+          :beginning => Time.now.getutc.to_i + 3600 + 300 + 120 + @settings[:preparation_time].to_i*60 + travel_time,
+          :end => Time.now.getutc.to_i + 3600 + 300 + 120 + @settings[:preparation_time].to_i*60 + travel_time + 3600,
           :duration => 3600,
           :summary => "Démo IOT",
           :location => "ICI",
