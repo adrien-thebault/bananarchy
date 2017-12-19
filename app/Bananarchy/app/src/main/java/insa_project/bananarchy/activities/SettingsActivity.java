@@ -80,6 +80,8 @@ import insa_project.bananarchy.bdd.RessourcesDAO;
 import insa_project.bananarchy.model.Group;
 import insa_project.bananarchy.model.Level;
 import insa_project.bananarchy.utils.APIConnexion;
+import insa_project.bananarchy.utils.ConnectBluetoothThread;
+import insa_project.bananarchy.utils.CustomJobService;
 import insa_project.bananarchy.utils.UTF8StringRequest;
 
 /**
@@ -329,7 +331,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
 
         if (ContextCompat.checkSelfPermission( context, android.Manifest.permission.ACCESS_FINE_LOCATION ) == PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission( context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
+            //locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
         } else {
             ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
         }
@@ -487,6 +489,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             sendButton.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
                 @Override
                 public boolean onPreferenceClick(Preference preference) {
+                    AsyncTaskSendBluetooth taskSendBluetooth = new AsyncTaskSendBluetooth();
+                    taskSendBluetooth.execute();
                     return false;
                 }
             });
@@ -541,6 +545,48 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                 return true;
             }
             return super.onOptionsItemSelected(item);
+        }
+
+        private class AsyncTaskSendBluetooth extends AsyncTask<String,Void,Boolean> {
+
+            @Override
+            protected Boolean doInBackground(String... strings) {
+
+                JsonObjectRequest jsonRequest = new JsonObjectRequest(Request.Method.GET, APIConnexion.URL_DATA_AGENDA, null,
+                        new Response.Listener<JSONObject>() {
+                            @Override
+                            public void onResponse(JSONObject agendaJSON) {
+                                if(ConnectBluetoothThread.isInit()){
+                                    try {
+                                        String agendaRequest = "AGENDA " + agendaJSON.getInt("beginning") + ";" + agendaJSON.getString("summary") + ";" + agendaJSON.getString("location");
+                                        ConnectBluetoothThread.write(agendaRequest);
+                                    } catch (JSONException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+                            }
+                        }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+
+                    }
+                });
+                Log.d("BANANARCHY","WRITE AGENDA");
+                RequestQueue queue1 = Volley.newRequestQueue(context);
+                queue1.add(jsonRequest);
+                if(!ConnectBluetoothThread.isInit()){
+                    return false;
+                }
+                return true;
+            }
+
+            @Override
+            protected void onPostExecute(Boolean result) {
+                if(result)
+                    Toast.makeText(getActivity(),"Synchronisation effectuée",Toast.LENGTH_LONG).show();
+                else
+                    Toast.makeText(getActivity(),"OUPS ! Petit problème ... ",Toast.LENGTH_LONG).show();
+            }
         }
     }
 

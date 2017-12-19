@@ -16,9 +16,11 @@ import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -43,7 +45,7 @@ public class CustomJobService extends JobService {
     private BluetoothSocket btSocket = null;
     Handler bluetoothIn;
     Handler error;
-    private static ConnectBluetoothThread mConnectedThread = null;
+    public static ConnectBluetoothThread mConnectedThread = null;
     final int handlerState = 0;
 
     protected static String agenda = null;
@@ -93,41 +95,72 @@ public class CustomJobService extends JobService {
             JsonObjectRequest stringRequest = new JsonObjectRequest(Request.Method.GET, APIConnexion.URL_ALL_DATA,null,
                     new Response.Listener<JSONObject>() {
                         @Override
-                        public void onResponse(JSONObject response) {
+                        public void onResponse(final JSONObject response) {
                             // Display the first 500 characters of the response string.
                             Log.d("BANANARCHY",response.toString());
                             try {
-                                String bluetoothRequest = "";
+                                final String[] bluetoothRequest = {""};
                                 JSONObject agendaJSON = response.getJSONObject("agenda");
                                 JSONObject weatherJSON = response.getJSONObject("weather");
-                                int preparationTimeJSON = response.getInt("preparation_time");
                                 int travelTimeJSON = response.getInt("travel_time");
 
                                 String agendaRequest = "AGENDA " + agendaJSON.getInt("beginning") + ";" + agendaJSON.getString("summary") + ";" + agendaJSON.getString("location");
                                 String weatherRequest = "WEATHER "+weatherJSON.getString("weather")+";"+weatherJSON.getInt("temp");
                                 String travelTimeRequest = "TRAVEL_TIME "+travelTimeJSON;
-                                String preparationTimeRequest = "PREPARATION_TIME "+preparationTimeJSON;
 
                                 if(!timestampSent){
-                                    bluetoothRequest = "TIMESTAMP "+response.getInt("timestamp");
+                                    bluetoothRequest[0] = "TIMESTAMP "+response.getInt("timestamp");
                                     timestampSent = true;
                                 }
-                                else if(!agendaRequest.equals(CustomJobService.this.agenda)) {
+                                /*else if(!agendaRequest.equals(CustomJobService.this.agenda)) {
                                     bluetoothRequest = agendaRequest;
                                     CustomJobService.this.agenda = agendaRequest;
-                                } else if (!weatherRequest.equals(CustomJobService.this.weather)){
-                                    bluetoothRequest = weatherRequest;
+                                }*/ else if (!weatherRequest.equals(CustomJobService.this.weather)){
+                                    bluetoothRequest[0] = weatherRequest;
                                     CustomJobService.this.weather = weatherRequest;
                                 } else if(!travelTimeRequest.equals(CustomJobService.this.travelTime)){
-                                    bluetoothRequest = travelTimeRequest;
+                                    bluetoothRequest[0] = travelTimeRequest;
                                     CustomJobService.this.travelTime = travelTimeRequest;
-                                } else if(!preparationTimeRequest.equals(CustomJobService.this.preparationTime)){
-                                    bluetoothRequest = preparationTimeRequest;
-                                    CustomJobService.this.preparationTime = preparationTimeRequest;
+                                } else {
+                                    JsonArrayRequest jsonRequest = new JsonArrayRequest(Request.Method.GET, APIConnexion.URL_SETTINGS, null,
+                                            new Response.Listener<JSONArray>() {
+                                                @Override
+                                                public void onResponse(JSONArray response1) {
+                                                    try {
+                                                        String preparationTimeValue = "";
+                                                        for(int i =0; i<response1.length(); i++){
+                                                            JSONObject currentObj = response1.getJSONObject(i);
+                                                            if(currentObj.getString("name").equals("preparation_time")){
+                                                                preparationTimeValue = currentObj.getString("value");
+                                                            }
+                                                        }
+                                                        Log.d("TEST RECEPTION",response1.toString());
+                                                        if(!preparationTimeValue.equals("")) {
+                                                            String preparationTimeRequest = "PREPARATION_TIME " + preparationTimeValue;
+                                                            if (!preparationTimeRequest.equals(CustomJobService.preparationTime)) {
+                                                                bluetoothRequest[0] = preparationTimeRequest;
+                                                                CustomJobService.this.preparationTime = preparationTimeRequest;
+                                                                mConnectedThread.write(bluetoothRequest[0]);
+                                                            }
+                                                        }
+                                                    } catch (JSONException e) {
+                                                        e.printStackTrace();
+                                                    }
+                                                }
+                                            }, new Response.ErrorListener() {
+                                        @Override
+                                        public void onErrorResponse(VolleyError error) {
+
+                                        }
+                                    });
+                                    Log.d("BANANARCHY","preparation time");
+                                    RequestQueue queue1 = Volley.newRequestQueue(getApplicationContext());
+                                    queue1.add(jsonRequest);
+
                                 }
 
-                                if(!bluetoothRequest.equals(""))
-                                    mConnectedThread.write(bluetoothRequest);
+                                if(!bluetoothRequest[0].equals(""))
+                                    mConnectedThread.write(bluetoothRequest[0]);
                                     //Log.d("BANANARCHY",bluetoothRequest);
                             } catch (JSONException e) {
                                 e.printStackTrace();
@@ -171,75 +204,7 @@ public class CustomJobService extends JobService {
     }
 
 
-    private class ConnectBluetoothThread extends Thread {
 
-        private final InputStream mmInStream;
-        private final OutputStream mmOutStream;
-
-        //creation of the connect thread
-        public ConnectBluetoothThread(BluetoothSocket socket) {
-            InputStream tmpIn = null;
-            OutputStream tmpOut = null;
-
-            try {
-                //Create I/O streams for connection
-                tmpIn = socket.getInputStream();
-                tmpOut = socket.getOutputStream();
-            } catch (IOException e) { }
-
-            mmInStream = tmpIn;
-            mmOutStream = tmpOut;
-        }
-
-        public void run() {
-            byte[] buffer = new byte[512];
-            int bytes;
-
-            // Keep looping to listen for received messages
-            while (true) {
-                try {
-                    bytes = mmInStream.read(buffer);            //read bytes from input buffer
-                    String readMessage = new String(buffer, 0, bytes);
-                    // Send the obtained bytes to the UI Activity via handler
-                    //bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
-                    Log.d("MESSAGE RECU",readMessage);
-                    readMessage = readMessage.replaceAll("\\s+","");
-                    if(readMessage.equals("P")){
-                        Log.d("BANANARCHY","DONE");
-                        UTF8StringRequest stringRequest = new UTF8StringRequest(Request.Method.POST, APIConnexion.URL_SEND_MAIL,
-                                new Response.Listener<String>() {
-                                    @Override
-                                    public void onResponse(String response) {
-                                        Log.d("BANANARCHY","MAIL ENVOYÉ");
-                                    }
-                                }, new Response.ErrorListener() {
-                            @Override
-                            public void onErrorResponse(VolleyError error) {
-                                Log.d("That didn't work!","ERROR");
-                            }
-                        });
-                        stringRequest.setRetryPolicy(new DefaultRetryPolicy(0, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
-                        RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
-                        queue.add(stringRequest);
-                    }
-                } catch (IOException e) {
-                    break;
-                }
-            }
-        }
-        //write method
-        public void write(String input) {
-            byte[] msgBuffer = input.getBytes();           //converts entered String into bytes
-            try {
-                mmOutStream.write(msgBuffer);                //write bytes over BT connection via outstream
-                Log.d("WRITEBLUE",input);
-            } catch (IOException e) {
-                //if you cannot write, close the application
-                e.printStackTrace();
-                Log.d("BANANARCHY","BLUETOOTH WRITE ERROR");
-            }
-        }
-    }
 
     private BluetoothSocket createBluetoothSocket(BluetoothDevice device) throws IOException {
 
@@ -288,7 +253,7 @@ public class CustomJobService extends JobService {
                             //insert code to deal with this
                         }
                     }
-                    mConnectedThread = new ConnectBluetoothThread(btSocket);
+                    mConnectedThread = new ConnectBluetoothThread(btSocket,getApplicationContext());
                     mConnectedThread.start();
 
                     //I send a character when resuming.beginning transmission to check device is connected

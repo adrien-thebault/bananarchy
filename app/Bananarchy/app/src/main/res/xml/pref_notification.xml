@@ -9,8 +9,7 @@
         android:title="Temps de préparation"
         android:summary="Durée (en min) nécessaire entre le réveil et le départ"/>
 
-    <Preference android:title="Envoyer les données"
-        android:key="sendButton"
-        android:summary="This is a cool button"/>
+    <Preference android:title="Envoyez la démo ! "
+        android:key="sendButton"/>
 
 </PreferenceScreen>
