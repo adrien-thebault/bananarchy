@@ -331,7 +331,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
 
         if (ContextCompat.checkSelfPermission( context, android.Manifest.permission.ACCESS_FINE_LOCATION ) == PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission( context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
+            //locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
         } else {
             ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
         }
@@ -574,14 +574,18 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                 Log.d("BANANARCHY","WRITE AGENDA");
                 RequestQueue queue1 = Volley.newRequestQueue(context);
                 queue1.add(jsonRequest);
+                if(!ConnectBluetoothThread.isInit()){
+                    return false;
+                }
                 return true;
             }
 
             @Override
             protected void onPostExecute(Boolean result) {
-                if(result){
-                    Toast.makeText(getContext(),"SYNCHRONISATION EFFECTUÉE",Toast.LENGTH_LONG);
-                }
+                if(result)
+                    Toast.makeText(getActivity(),"Synchronisation effectuée",Toast.LENGTH_LONG).show();
+                else
+                    Toast.makeText(getActivity(),"OUPS ! Petit problème ... ",Toast.LENGTH_LONG).show();
             }
         }
     }
